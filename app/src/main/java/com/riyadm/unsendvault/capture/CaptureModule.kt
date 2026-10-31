@@ -1,8 +1,6 @@
 package com.riyadm.unsendvault.capture
 
 import android.content.Context
-import android.content.pm.PackageManager
-import android.os.Build
 import com.riyadm.unsendvault.R
 import com.riyadm.unsendvault.capture.adapter.AdapterRegistry
 import com.riyadm.unsendvault.capture.adapter.AppLabelResolver
@@ -65,7 +63,7 @@ object CaptureModule {
                 }
             },
             registry = registry,
-            labels = AppLabelResolver { pkg -> packageLabel(context, pkg) },
+            labels = AppLabelResolver { pkg -> container.appDirectory.label(pkg) },
             sensitiveFilter = SensitiveContentFilter(placeholders),
             ownPackage = context.packageName,
         )
@@ -95,17 +93,5 @@ object CaptureModule {
             mediaAudio = str(R.string.capture_media_audio, defaults.mediaAudio),
             mediaAttachment = str(R.string.capture_media_attachment, defaults.mediaAttachment),
         )
-    }
-
-    /** Label of a single package (never enumerates installed packages). Null when hidden by package visibility. */
-    private fun packageLabel(context: Context, packageName: String): String? {
-        val pm = context.packageManager
-        val info = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            pm.getApplicationInfo(packageName, PackageManager.ApplicationInfoFlags.of(0))
-        } else {
-            @Suppress("DEPRECATION")
-            pm.getApplicationInfo(packageName, 0)
-        }
-        return pm.getApplicationLabel(info).toString()
     }
 }

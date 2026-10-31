@@ -47,12 +47,12 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
@@ -65,8 +65,11 @@ import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.withContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.riyadm.unsendvault.R
+import com.riyadm.unsendvault.apps.AppDirectory
 import com.riyadm.unsendvault.core.model.ArchivedMessage
 import com.riyadm.unsendvault.core.model.ContentKind
 import com.riyadm.unsendvault.reply.ReplyAvailability
@@ -98,11 +101,12 @@ fun ConversationRoute(
     onOpenMessage: (Long) -> Unit,
     /** Called with true while the chat is resumed on screen, false when it leaves (saved-message notifications). */
     onVisibleChanged: (Boolean) -> Unit = {},
+    /** Opens the source app (in whichever profile has it) from the reply bar. Null hides that button. */
+    appDirectory: AppDirectory? = null,
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val resources = LocalResources.current
-    val context = LocalContext.current
     var replyDraft by rememberSaveable { mutableStateOf("") }
     LifecycleResumeEffect(viewModel) {
         onVisibleChanged(true)
@@ -130,27 +134,18 @@ fun ConversationRoute(
         }
     }
     val packageName = state.conversation?.packageName
-    val launchIntent = remember(packageName) {
-        packageName?.let { pkg ->
-            try {
-                context.packageManager.getLaunchIntentForPackage(pkg)
-            } catch (e: Exception) {
-                null
-            }
-        }
+    // The chat app may live only in a work or other profile; AppDirectory finds and opens it there too.
+    val canOpenApp by produceState(false, packageName, appDirectory) {
+        value = packageName != null && appDirectory != null && withContext(Dispatchers.IO) { appDirectory.canLaunch(packageName) }
     }
     ConversationScreen(
         replyDraft = replyDraft,
         onReplyDraftChange = { replyDraft = it },
         onSendReply = { viewModel.sendReply(replyDraft) },
-        onOpenSourceApp = launchIntent?.let { intent ->
-            {
-                try {
-                    context.startActivity(intent)
-                } catch (e: Exception) {
-                    // App vanished or blocked its launcher activity; nothing else to do.
-                }
-            }
+        onOpenSourceApp = if (canOpenApp && packageName != null && appDirectory != null) {
+            { appDirectory.launch(packageName) }
+        } else {
+            null
         },
         state = state,
         snackbarHostState = snackbar,

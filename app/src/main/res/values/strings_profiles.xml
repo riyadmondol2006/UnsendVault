@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Where an app is installed, shown in the app pickers. -->
+    <string name="profile_work">Work profile</string>
+    <string name="profile_clone">Cloned app</string>
+    <string name="profile_private">Private space</string>
+    <string name="profile_other">Other profile</string>
+    <string name="profile_also_work">Also in work profile</string>
+    <string name="profile_also_clone">Also cloned</string>
+    <string name="profile_also_private">Also in private space</string>
+    <string name="profile_also_other">Also in another profile</string>
+    <string name="profile_separator">%1$s · %2$s</string>
+    <string name="exclusions_profiles_note">Excluding an app also excludes its copies in your work profile and other profiles.</string>
+</resources>

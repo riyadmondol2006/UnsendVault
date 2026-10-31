@@ -3,6 +3,7 @@ package com.riyadm.unsendvault.ui.settings
 import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.riyadm.unsendvault.apps.ProfileKind
 import com.riyadm.unsendvault.core.model.AppSummary
 import com.riyadm.unsendvault.core.model.StartTab
 import com.riyadm.unsendvault.core.model.ThemeMode
@@ -27,6 +28,9 @@ data class ExclusionCandidate(
     val label: String,
     val archivedMessages: Int,
     val excluded: Boolean,
+    /** Where the app is installed; exclusion is by package, so it covers every profile. */
+    val profile: ProfileKind = ProfileKind.PERSONAL,
+    val alsoIn: Set<ProfileKind> = emptySet(),
 )
 
 @Immutable
@@ -41,11 +45,18 @@ data class SettingsUiState(
         get() {
             val excluded = settings?.excludedPackages.orEmpty()
             val byPackage = LinkedHashMap<String, ExclusionCandidate>()
+            val installed = launcherApps.orEmpty().associateBy { it.packageName }
             archiveApps.sortedBy { it.appLabel.lowercase() }.forEach {
-                byPackage[it.packageName] = ExclusionCandidate(it.packageName, it.appLabel, it.messageCount, it.packageName in excluded)
+                val app = installed[it.packageName]
+                // Archives made before other profiles were looked up may hold the package name as the label.
+                val label = if (it.appLabel == it.packageName && app != null) app.label else it.appLabel
+                byPackage[it.packageName] = ExclusionCandidate(
+                    it.packageName, label, it.messageCount, it.packageName in excluded,
+                    app?.profile ?: ProfileKind.PERSONAL, app?.alsoIn.orEmpty(),
+                )
             }
             launcherApps.orEmpty().forEach {
-                byPackage.putIfAbsent(it.packageName, ExclusionCandidate(it.packageName, it.label, 0, it.packageName in excluded))
+                byPackage.putIfAbsent(it.packageName, ExclusionCandidate(it.packageName, it.label, 0, it.packageName in excluded, it.profile, it.alsoIn))
             }
             excluded.filterNot { it in byPackage }.sorted().forEach {
                 byPackage[it] = ExclusionCandidate(it, it, 0, true)

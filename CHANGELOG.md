@@ -4,6 +4,15 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 Releases are built and published automatically from `main` and numbered `MAJOR.MINOR.N`, where `N` is the commit count
 (see [docs/RELEASING.md](docs/RELEASING.md)); each GitHub release also lists the commits it contains.
 
+## Unreleased
+
+### Fixed
+- Apps installed only in a **work profile** or another profile (cloned apps / Dual Messenger, Secure Folder) are now
+  found: they appear in Excluded apps (marked "Work profile", "Cloned app" or "Other profile"; apps in both profiles
+  say "Also in work profile"), the archive shows their real name and their badged icon instead of the package name and
+  a letter, and a chat's "Open app" button opens the app in that profile. Uses `LauncherApps`, no new permission.
+  Reported with a proposed fix by @Zokii0 in [issue #3](https://github.com/riyadmondol2006/UnsendVault/issues/3).
+
 ## 1.0.29 (2026-11-01)
 
 Requested in [issue #3](https://github.com/riyadmondol2006/UnsendVault/issues/3).

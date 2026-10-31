@@ -1,6 +1,7 @@
 package com.riyadm.unsendvault.di
 
 import android.content.Context
+import com.riyadm.unsendvault.apps.AppDirectory
 import com.riyadm.unsendvault.capture.CaptureEngine
 import com.riyadm.unsendvault.capture.CaptureModule
 import com.riyadm.unsendvault.capture.CapturePauseController
@@ -55,6 +56,8 @@ class AppContainer(context: Context) {
     val listenerStatus: ListenerStatus by lazy { CaptureModule.createListenerStatus(this.context) }
     val capture: CaptureRuntime by lazy { CaptureModule.createRuntime(this) }
     val captureEngine: CaptureEngine get() = capture.engine
+    /** App labels, icons and launching across the user's profiles (work profile, cloned apps). */
+    val appDirectory: AppDirectory by lazy { AppDirectory(this.context) }
     val widgetRefresher: WidgetRefresher by lazy { WidgetModule.createRefresher(this.context) }
 
     /** Opt-in "messages saved" notifications. Built on the first ingest that actually stores something. */

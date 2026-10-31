@@ -1,7 +1,7 @@
 package com.riyadm.unsendvault.ui.components
 
 import android.content.Context
-import android.content.pm.PackageManager
+import com.riyadm.unsendvault.apps.AppDirectory
 import android.util.LruCache
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Box
@@ -37,10 +37,9 @@ internal object AppIconCache {
     fun load(context: Context, packageName: String, sizePx: Int): ImageBitmap? {
         val key = "$packageName@$sizePx"
         cache.get(key)?.let { return it as? ImageBitmap }
+        // Current profile first, then the badged icon of the app in a work/other profile.
         val bitmap = try {
-            context.packageManager.getApplicationIcon(packageName).toBitmap(sizePx, sizePx).asImageBitmap()
-        } catch (_: PackageManager.NameNotFoundException) {
-            null
+            AppDirectory(context).icon(packageName)?.toBitmap(sizePx, sizePx)?.asImageBitmap()
         } catch (_: RuntimeException) {
             null
         }

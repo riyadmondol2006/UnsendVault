@@ -20,6 +20,9 @@ the reason Android gives, for display only.
 It does not read your contacts, SMS database, files, photos, location, microphone or camera, and it cannot read
 anything inside other apps that was not shown in a notification.
 
+To show app names and icons and to list apps you can exclude, it looks up launchable apps in your profiles (including a
+work profile) through Android's launcher API. This list stays on the device and is never stored or sent.
+
 ## What the app stores, and where
 
 - Archived messages, conversation names, update history and deletion markers: in an app-private database. Message

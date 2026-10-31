@@ -6,7 +6,9 @@ import com.riyadm.unsendvault.core.model.VaultSettings
 import com.riyadm.unsendvault.data.fake.InMemorySettingsRepository
 import com.riyadm.unsendvault.data.fake.InMemoryVaultRepository
 import com.riyadm.unsendvault.core.model.MessageQuery
+import com.riyadm.unsendvault.apps.ProfileKind
 import com.riyadm.unsendvault.ui.settings.InstalledApp
+import com.riyadm.unsendvault.ui.settings.SettingsUiState
 import com.riyadm.unsendvault.ui.settings.SettingsEvent
 import com.riyadm.unsendvault.ui.settings.SettingsViewModel
 import kotlinx.coroutines.flow.first
@@ -185,5 +187,28 @@ class SettingsViewModelTest {
         vm.setStartTab(com.riyadm.unsendvault.core.model.StartTab.APPS)
         advanceUntilIdle()
         assertEquals(com.riyadm.unsendvault.core.model.StartTab.APPS, settings.current.startTab)
+    }
+
+    @Test
+    fun exclusionCandidates_carryProfiles_andFixPackageNameLabels() {
+        val state = SettingsUiState(
+            settings = com.riyadm.unsendvault.core.model.VaultSettings(excludedPackages = setOf("com.viber")),
+            archiveApps = listOf(
+                com.riyadm.unsendvault.core.model.AppSummary("com.workchat", "com.workchat", 3, 1, 1L),
+                com.riyadm.unsendvault.core.model.AppSummary("com.whatsapp", "WhatsApp", 5, 2, 2L),
+            ),
+            launcherApps = listOf(
+                InstalledApp("com.workchat", "Work Chat", ProfileKind.WORK),
+                InstalledApp("com.whatsapp", "WhatsApp", ProfileKind.PERSONAL, setOf(ProfileKind.WORK)),
+                InstalledApp("com.viber", "Viber", ProfileKind.WORK),
+            ),
+        )
+        val byPkg = state.exclusionCandidates.associateBy { it.packageName }
+        assertEquals("Work Chat", byPkg.getValue("com.workchat").label) // stored label was the package name
+        assertEquals(ProfileKind.WORK, byPkg.getValue("com.workchat").profile)
+        assertEquals(3, byPkg.getValue("com.workchat").archivedMessages)
+        assertEquals(setOf(ProfileKind.WORK), byPkg.getValue("com.whatsapp").alsoIn)
+        assertTrue(byPkg.getValue("com.viber").excluded)
+        assertEquals(ProfileKind.WORK, byPkg.getValue("com.viber").profile)
     }
 }

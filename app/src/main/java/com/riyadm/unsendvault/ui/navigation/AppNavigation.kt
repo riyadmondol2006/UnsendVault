@@ -207,7 +207,7 @@ private fun settingsViewModelFactory(c: AppContainer) = SettingsViewModel(
     settingsRepository = c.settingsRepository,
     vault = c.vaultRepository,
     retentionScheduler = c.retentionScheduler,
-    installedApps = PackageManagerAppsSource(c.context),
+    installedApps = PackageManagerAppsSource(c.context, c.appDirectory),
     demoDataInserter = if (BuildConfig.DEBUG) ({ DemoData.insert(c.vaultRepository) }) else null,
     cancelSavedNotifications = { c.savedMessageNotifier.cancelAll() },
 )
@@ -239,6 +239,7 @@ private fun AppNavHost(navController: NavHostController, isWide: Boolean, onLock
                             onClosed = onClose,
                             onOpenMessage = { navController.navigate(MessageDest(it)) },
                             onVisibleChanged = { visible -> container.onConversationVisible(id, visible) },
+                            appDirectory = container.appDirectory,
                         )
                     }
                 },
@@ -270,6 +271,7 @@ private fun AppNavHost(navController: NavHostController, isWide: Boolean, onLock
                 onClosed = { back() },
                 onOpenMessage = { navController.navigate(MessageDest(it)) },
                 onVisibleChanged = { visible -> container.onConversationVisible(id, visible) },
+                appDirectory = container.appDirectory,
             )
         }
         composable<MessageDest> { backStackEntry ->

@@ -257,3 +257,23 @@ matches its published SHA-256, is signed with the same certificate as earlier re
 (SHA-256 `e443c869…75135197`), reports `com.riyadm.unsendvault` 29 / 1.0.29, and declares exactly `INTERNET`,
 `POST_NOTIFICATIONS`, `USE_BIOMETRIC`, `USE_FINGERPRINT`, `WAKE_LOCK`, `RECEIVE_BOOT_COMPLETED` and the internal
 dynamic-receiver permission. (The debug build tested above reported 1.0.28 because it was built before the commit.)
+
+## Round 4 (2026-11-01): apps in a work profile or other profile
+
+Debug build on the same Pixel 6 / Android 17, with a temporary managed (work) profile created for the test
+(`pm create-user --profileOf 0 --managed`, removed afterwards) and a throwaway chat helper app installed **only** in
+that work profile. Synthetic data only; Google Messages was excluded before Notification Access was granted.
+
+- Unit tests: 451 run, 450 passed, 1 skipped (as before), 0 failed (5 new: profile merging, user-type mapping, exclusion
+  list labels and profiles). Instrumented tests on the Pixel: 29 passed. Lint: no new warnings. Release APK 3.1 MB.
+
+| Test | Result |
+|---|---|
+| Excluded apps with a work profile present | Note "Excluding an app also excludes its copies…" shown; work-only app listed as "Probe Chat · Work profile · package"; Chrome (in both profiles) as "Also in work profile" |
+| Message from the work-profile app | Captured; archive shows "Probe Chat" (not the package name) and the app icon with the work badge, also in the app filter chip |
+| Reply in that chat | Delivered to the app inside the work profile (logged by the app as user 10) |
+| Notification dismissed, "Open Probe Chat" | Opened the app inside the work profile (user 10) |
+
+Android 15+ reports the profile type (work, cloned app, private space); on Android 8–14 such apps are labelled
+"Other profile" because the type isn't available to apps there. Samsung Dual Messenger and Secure Folder were not
+tested (no Samsung device).

@@ -39,6 +39,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.riyadm.unsendvault.R
+import com.riyadm.unsendvault.apps.ProfileKind
 import com.riyadm.unsendvault.ui.components.AppAvatar
 import com.riyadm.unsendvault.ui.components.AppScaffold
 import com.riyadm.unsendvault.ui.components.ConfirmDialog
@@ -78,6 +79,9 @@ fun ExclusionsRoute(viewModel: SettingsViewModel, onBack: () -> Unit) {
                 shape = MaterialTheme.shapes.extraLarge,
             )
             if (state.launcherApps == null) LinearProgressIndicator(Modifier.fillMaxWidth())
+            if (state.launcherApps.orEmpty().any { it.profile != ProfileKind.PERSONAL || it.alsoIn.isNotEmpty() }) {
+                InfoText(stringResource(R.string.exclusions_profiles_note))
+            }
             val candidates = state.exclusionCandidates.let { all ->
                 val needle = filter.trim()
                 if (needle.isEmpty()) all else all.filter { it.label.contains(needle, true) || it.packageName.contains(needle, true) }
@@ -87,12 +91,14 @@ fun ExclusionsRoute(viewModel: SettingsViewModel, onBack: () -> Unit) {
                     ListItem(
                         headlineContent = { Text(candidate.label, maxLines = 1, overflow = TextOverflow.Ellipsis) },
                         supportingContent = {
+                            val detail = if (candidate.archivedMessages > 0) {
+                                pluralStringResource(R.plurals.stats_messages, candidate.archivedMessages, candidate.archivedMessages)
+                            } else {
+                                candidate.packageName
+                            }
+                            val where = profileText(candidate.profile, candidate.alsoIn)
                             Text(
-                                if (candidate.archivedMessages > 0) {
-                                    pluralStringResource(R.plurals.stats_messages, candidate.archivedMessages, candidate.archivedMessages)
-                                } else {
-                                    candidate.packageName
-                                },
+                                if (where == null) detail else stringResource(R.string.profile_separator, where, detail),
                                 maxLines = 1,
                                 overflow = TextOverflow.Ellipsis,
                             )
@@ -124,4 +130,26 @@ fun ExclusionsRoute(viewModel: SettingsViewModel, onBack: () -> Unit) {
             onDismiss = { offer = null },
         )
     }
+}
+
+/** "Work profile" for an app only there, "Also in work profile" for one in both; null for personal-only apps. */
+@Composable
+private fun profileText(profile: ProfileKind, alsoIn: Set<ProfileKind>): String? = when {
+    profile != ProfileKind.PERSONAL -> stringResource(
+        when (profile) {
+            ProfileKind.WORK -> R.string.profile_work
+            ProfileKind.CLONE -> R.string.profile_clone
+            ProfileKind.PRIVATE -> R.string.profile_private
+            else -> R.string.profile_other
+        },
+    )
+    alsoIn.isNotEmpty() -> stringResource(
+        when {
+            ProfileKind.WORK in alsoIn -> R.string.profile_also_work
+            ProfileKind.CLONE in alsoIn -> R.string.profile_also_clone
+            ProfileKind.PRIVATE in alsoIn -> R.string.profile_also_private
+            else -> R.string.profile_also_other
+        },
+    )
+    else -> null
 }

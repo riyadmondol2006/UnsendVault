@@ -1,42 +1,30 @@
 package com.riyadm.unsendvault.ui.settings
 
 import android.content.Context
-import android.content.Intent
-import android.content.pm.PackageManager
-import android.os.Build
 import androidx.compose.runtime.Immutable
+import com.riyadm.unsendvault.apps.AppDirectory
+import com.riyadm.unsendvault.apps.ProfileKind
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
 @Immutable
-data class InstalledApp(val packageName: String, val label: String)
+data class InstalledApp(
+    val packageName: String,
+    val label: String,
+    /** [ProfileKind.PERSONAL] when the app is in the current profile; otherwise the profile it was found in. */
+    val profile: ProfileKind = ProfileKind.PERSONAL,
+    /** Other profiles with the same app. */
+    val alsoIn: Set<ProfileKind> = emptySet(),
+)
 
-/** Lists launchable apps for the exclusion picker. */
+/** Lists launchable apps of every profile (personal, work, cloned, …) for the exclusion picker. */
 fun interface InstalledAppsSource {
     suspend fun launcherApps(): List<InstalledApp>
 }
 
-/**
- * Uses the launcher-intent `<queries>` entry in the manifest (no QUERY_ALL_PACKAGES). Runs on the IO dispatcher.
- */
-class PackageManagerAppsSource(context: Context) : InstalledAppsSource {
-    private val app = context.applicationContext
-
+/** [AppDirectory] on the IO dispatcher (launcher-intent `<queries>`, no QUERY_ALL_PACKAGES, no extra permission). */
+class PackageManagerAppsSource(context: Context, private val directory: AppDirectory = AppDirectory(context)) : InstalledAppsSource {
     override suspend fun launcherApps(): List<InstalledApp> = withContext(Dispatchers.IO) {
-        val pm = app.packageManager
-        val intent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_LAUNCHER)
-        val activities = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
-            pm.queryIntentActivities(intent, PackageManager.ResolveInfoFlags.of(0))
-        } else {
-            @Suppress("DEPRECATION")
-            pm.queryIntentActivities(intent, 0)
-        }
-        activities.asSequence()
-            .map { it.activityInfo.applicationInfo }
-            .filter { it.packageName != app.packageName }
-            .distinctBy { it.packageName }
-            .map { InstalledApp(it.packageName, pm.getApplicationLabel(it).toString()) }
-            .sortedBy { it.label.lowercase() }
-            .toList()
+        directory.launchableApps().map { InstalledApp(it.packageName, it.label, it.profile, it.alsoIn) }
     }
 }
