@@ -248,3 +248,12 @@ cancelled.
 
 During setup the debug build's catch-up again read real SMS from Google Messages; they were deleted immediately and the
 app was excluded in the debug build.
+
+### Release v1.0.29 (published by CI)
+
+The push of these changes built, signed and published
+[v1.0.29](https://github.com/riyadmondol2006/UnsendVault/releases/tag/v1.0.29). The downloaded APK (3,137,218 bytes)
+matches its published SHA-256, is signed with the same certificate as earlier releases
+(SHA-256 `e443c869…75135197`), reports `com.riyadm.unsendvault` 29 / 1.0.29, and declares exactly `INTERNET`,
+`POST_NOTIFICATIONS`, `USE_BIOMETRIC`, `USE_FINGERPRINT`, `WAKE_LOCK`, `RECEIVE_BOOT_COMPLETED` and the internal
+dynamic-receiver permission. (The debug build tested above reported 1.0.28 because it was built before the commit.)
