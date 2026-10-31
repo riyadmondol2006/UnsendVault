@@ -8,6 +8,7 @@ import com.riyadm.unsendvault.core.model.AppSummary
 import com.riyadm.unsendvault.core.model.ArchivedMessage
 import com.riyadm.unsendvault.core.model.Conversation
 import com.riyadm.unsendvault.core.model.MessageQuery
+import com.riyadm.unsendvault.core.model.StartTab
 import com.riyadm.unsendvault.core.model.VaultStats
 import com.riyadm.unsendvault.data.SettingsRepository
 import com.riyadm.unsendvault.data.VaultRepository
@@ -22,6 +23,12 @@ import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 enum class HomeTab { RECENT, CONVERSATIONS, APPS }
+
+fun StartTab.toHomeTab(): HomeTab = when (this) {
+    StartTab.RECENT -> HomeTab.RECENT
+    StartTab.CHATS -> HomeTab.CONVERSATIONS
+    StartTab.APPS -> HomeTab.APPS
+}
 
 /** Capture health, in priority order: the first problem found is the one shown. */
 enum class CaptureStatus { NO_ACCESS, PAUSED, DISCONNECTED, ACTIVE }
@@ -52,7 +59,8 @@ class HomeViewModel(
     private val settings: SettingsRepository,
     private val listenerStatus: ListenerStatus,
 ) : ViewModel() {
-    private val tab = MutableStateFlow(HomeTab.RECENT)
+    /** Null until the user picks a tab: the saved start tab applies (each new launch gets a new ViewModel). */
+    private val tab = MutableStateFlow<HomeTab?>(null)
     private val packageFilter = MutableStateFlow<Set<String>>(emptySet())
     private val accessGranted = MutableStateFlow(listenerStatus.isAccessGranted())
     private val selectedConversation = MutableStateFlow<Long?>(null)
@@ -70,7 +78,9 @@ class HomeViewModel(
         captureStatusOf(access, s.captureEnabled, connected) to s.appLockEnabled
     }
 
-    private val ui = combine(tab, packageFilter, selectedConversation) { t, f, c -> Triple(t, f, c) }
+    private val effectiveTab = combine(tab, settings.settings) { picked, s -> picked ?: s.startTab.toHomeTab() }
+
+    private val ui = combine(effectiveTab, packageFilter, selectedConversation) { t, f, c -> Triple(t, f, c) }
 
     val state: StateFlow<HomeUiState> = combine(
         ui, status, apps, combine(recent, conversations) { r, c -> r to c }, vault.observeStats(),
@@ -88,7 +98,7 @@ class HomeViewModel(
             appLockEnabled = lock,
             selectedConversationId = selectedConv?.takeIf { id -> convs.any { it.id == id } },
         )
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState())
+    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), HomeUiState(tab = settings.current.startTab.toHomeTab()))
 
     fun selectTab(value: HomeTab) = tab.update { value }
 

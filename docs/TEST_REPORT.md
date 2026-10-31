@@ -204,3 +204,47 @@ CPU time of the app process in 100 Hz ticks for the workloads described above (l
   sensitive-content regexes was measured A/B against 1.0.27 (both AOT-compiled, measured during the same workloads):
   no measurable gain (W2 197/152 vs 177/134), so it was **not** shipped.
 - While capture is paused the listener is unbound, so paused capture costs no CPU per notification.
+
+## Round 3 (2026-11-01): issue #3 — reply, saved-message notifications, start tab
+
+Debug build (`com.riyadm.unsendvault.debug`, version 1.0.28) on the same Pixel 6 / Android 17. The chat app was a
+throwaway helper app built only for this test (not part of the repository) that posts MessagingStyle notifications with
+a RemoteInput reply action, logs replies it receives, and re-posts the chat with the reply, like real chat apps do. All
+chat content was synthetic.
+
+### Automated
+
+- Unit tests: 446 run, **445 passed**, 1 skipped (as before), 0 failed (23 new: notification policy and per-chat state, ingest details,
+  reply gateway on Robolectric including the fired RemoteInput intent and chat routing, conversation reply state,
+  start tab, settings persistence and lock rules, conversation deep link, settings cancel hooks).
+- Instrumented tests on the Pixel: **29 passed**, 0 failed.
+- Lint: no new warnings (the 15 existing widget `UnusedAttribute` warnings remain). Release APK size unchanged
+  (3.1 MB). `scripts/verify-release.sh` run on a test-signed copy of the release APK: all permission checks pass
+  (`POST_NOTIFICATIONS` allowed), the only failure was the expected debug signing certificate.
+
+### Manual on the device
+
+| Test | Result |
+|---|---|
+| Chat whose notification is showing with a reply action | Reply box "Reply via …" shown |
+| Send a reply | Helper app received exactly the typed text through its own reply action; its updated notification was archived as "You: …" |
+| Two chats showing, reply in the second | Reply went to the second chat only |
+| Chat's notification dismissed, chat opened | "Replies work only while …'s notification for this chat is still showing." |
+| New message arrives while that chat is open | Reply box reappeared without leaving the screen |
+| Keyboard open | Reply bar sits directly above the keyboard (screenshot checked) |
+| Turn on "Notify when messages are saved" | Android 17 permission prompt shown; after Allow the switch is on |
+| New message, content hidden (default) | Silent (importance low), grouped notification "Saved from Reply Probe / 1 new message saved", lock-screen version generic |
+| Two more messages | Count became 2, then 3 in the same notification |
+| "Show names and text" on | Title = chat name, app as subtext, last lines listed |
+| Tap the notification in the shade | UnsendVault opened that chat; the notification was removed |
+| New message while that chat is open | No notification posted; after leaving the chat the next message posted one again |
+| Turn the option off with two notifications showing | Both removed; later messages posted none |
+| "Open on" = Chats, then force-stop and relaunch | Archive opened on the Chats tab |
+
+Not tested on the device: WhatsApp, WhatsApp Business, Viber and other real chat apps (not installed; their reply
+actions are standard RemoteInput actions but individual apps may behave differently); enabling the app lock (needs the
+owner's credential), which is covered by the settings view-model unit test that checks posted notifications are
+cancelled.
+
+During setup the debug build's catch-up again read real SMS from Google Messages; they were deleted immediately and the
+app was excluded in the debug build.

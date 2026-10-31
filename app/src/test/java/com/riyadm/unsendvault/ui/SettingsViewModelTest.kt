@@ -12,6 +12,7 @@ import com.riyadm.unsendvault.ui.settings.SettingsViewModel
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
+import kotlinx.coroutines.test.advanceUntilIdle
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -152,5 +153,37 @@ class SettingsViewModelTest {
             assertEquals(SettingsEvent.DemoDataInserted(7), awaitItem())
         }
         assertEquals(1, demoCalls)
+    }
+
+    @Test
+    fun savedNotifications_cancelledWhenOffContentHiddenOrLocked() = runTest {
+        var cancels = 0
+        val vm = SettingsViewModel(settings, vault, scheduler, { launcher }, cancelSavedNotifications = { cancels++ })
+        vm.setSavedMessageNotifications(true)
+        vm.setNotificationShowContent(true)
+        advanceUntilIdle()
+        assertEquals(0, cancels)
+        assertTrue(settings.current.savedMessageNotifications && settings.current.notificationShowContent)
+
+        vm.setAppLockEnabled(true)
+        advanceUntilIdle()
+        assertEquals(1, cancels)
+        assertFalse(settings.current.notificationShowContent)
+        vm.setNotificationShowContent(true) // refused while locked
+        advanceUntilIdle()
+        assertFalse(settings.current.notificationShowContent)
+
+        vm.setSavedMessageNotifications(false)
+        advanceUntilIdle()
+        assertFalse(settings.current.savedMessageNotifications)
+        assertTrue(cancels >= 2)
+    }
+
+    @Test
+    fun startTabIsStored() = runTest {
+        val vm = vm()
+        vm.setStartTab(com.riyadm.unsendvault.core.model.StartTab.APPS)
+        advanceUntilIdle()
+        assertEquals(com.riyadm.unsendvault.core.model.StartTab.APPS, settings.current.startTab)
     }
 }

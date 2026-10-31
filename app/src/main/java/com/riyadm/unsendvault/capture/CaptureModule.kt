@@ -33,6 +33,8 @@ class CaptureRuntime(
     val engine: CaptureEngine,
     val preFilter: CapturePreFilter,
     val settings: CaptureSettingsCache,
+    /** Also used off the hot path to find which chat an active notification belongs to (reply). */
+    val registry: AdapterRegistry,
 )
 
 object CaptureModule {
@@ -50,7 +52,12 @@ object CaptureModule {
             settingsProvider = { cache.get() },
             sink = object : CaptureSink {
                 override suspend fun ingest(parsed: ParsedNotification, capturedAt: Long) {
-                    container.vaultRepository.ingest(parsed, capturedAt)
+                    val result = container.vaultRepository.ingest(parsed, capturedAt)
+                    if (result.newMessages.isEmpty() && result.possiblyDeletedIn.isEmpty()) return
+                    val settings = cache.get()
+                    if (settings.savedMessageNotifications) {
+                        container.savedMessageNotifier.onIngested(settings, parsed, result, capturedAt)
+                    }
                 }
 
                 override suspend fun recordRemoval(event: RemovalEvent) {
@@ -62,7 +69,7 @@ object CaptureModule {
             sensitiveFilter = SensitiveContentFilter(placeholders),
             ownPackage = context.packageName,
         )
-        return CaptureRuntime(engine, CapturePreFilter(registry, context.packageName), cache)
+        return CaptureRuntime(engine, CapturePreFilter(registry, context.packageName), cache, registry)
     }
 
     fun createPauseController(context: Context): CapturePauseController =

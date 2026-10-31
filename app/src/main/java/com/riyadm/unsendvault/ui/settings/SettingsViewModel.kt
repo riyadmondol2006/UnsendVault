@@ -4,6 +4,7 @@ import androidx.compose.runtime.Immutable
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.riyadm.unsendvault.core.model.AppSummary
+import com.riyadm.unsendvault.core.model.StartTab
 import com.riyadm.unsendvault.core.model.ThemeMode
 import com.riyadm.unsendvault.core.model.VaultSettings
 import com.riyadm.unsendvault.data.RetentionScheduler
@@ -68,6 +69,8 @@ class SettingsViewModel(
     private val retentionScheduler: RetentionScheduler,
     private val installedApps: InstalledAppsSource,
     private val demoDataInserter: (suspend () -> Int)? = null,
+    /** Removes posted saved-message notifications (feature off, content hidden, app lock on, all data deleted). */
+    private val cancelSavedNotifications: () -> Unit = {},
 ) : ViewModel() {
     private val launcherApps = MutableStateFlow<List<InstalledApp>?>(null)
     private val busy = MutableStateFlow(false)
@@ -139,8 +142,25 @@ class SettingsViewModel(
     fun setWidgetShowContent(value: Boolean) = update { if (it.appLockEnabled) it.copy(widgetShowContent = false) else it.copy(widgetShowContent = value) }
 
     // Security. The UI verifies the device credential before calling setAppLockEnabled(true).
-    fun setAppLockEnabled(value: Boolean) = update {
-        if (value) it.copy(appLockEnabled = true, widgetShowContent = false) else it.copy(appLockEnabled = false)
+    fun setAppLockEnabled(value: Boolean) {
+        update {
+            if (value) it.copy(appLockEnabled = true, widgetShowContent = false, notificationShowContent = false) else it.copy(appLockEnabled = false)
+        }
+        if (value) cancelSavedNotifications() // posted ones may show chat names and text
+    }
+
+    fun setStartTab(tab: StartTab) = update { it.copy(startTab = tab) }
+
+    /** The screen asks for POST_NOTIFICATIONS first on Android 13+; this only stores the choice. */
+    fun setSavedMessageNotifications(value: Boolean) {
+        update { it.copy(savedMessageNotifications = value) }
+        if (!value) cancelSavedNotifications()
+    }
+
+    /** Forced off while the app lock is enabled (same rule as widget content). */
+    fun setNotificationShowContent(value: Boolean) {
+        update { if (it.appLockEnabled) it.copy(notificationShowContent = false) else it.copy(notificationShowContent = value) }
+        if (!value) cancelSavedNotifications()
     }
 
     fun setLockTimeout(seconds: Int) = update { it.copy(lockTimeoutSeconds = seconds) }
@@ -162,6 +182,7 @@ class SettingsViewModel(
             } finally {
                 busy.value = false
             }
+            cancelSavedNotifications()
             _events.send(SettingsEvent.AllDataDeleted)
         }
     }

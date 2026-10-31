@@ -121,9 +121,9 @@ class MigrationTest {
             // Identity still works against migrated rows: the same message re-posted is UNCHANGED (same conversation,
             // same row), a new text in the same precise slot is an edit.
             val same = Fx.msg("Hello migrated world", sender = "Bob", ts = 2000, key = "c1", title = "Bob")
-            assertEquals(IngestResult(0, 0, 1, 0), repo.ingest(Fx.parsed(same), Fx.T0))
-            assertEquals(IngestResult(0, 0, 1, 0), repo.ingest(Fx.parsed(Fx.msg("second", sender = null, ts = 1000 + Fx.MIN, precise = false, title = "Bob")), Fx.T0))
-            assertEquals(IngestResult(0, 1, 0, 0), repo.ingest(Fx.parsed(same.copy(text = "Hello migrated world, edited")), Fx.T0))
+            assertEquals(IngestResult(0, 0, 1, 0), repo.ingest(Fx.parsed(same), Fx.T0).counts())
+            assertEquals(IngestResult(0, 0, 1, 0), repo.ingest(Fx.parsed(Fx.msg("second", sender = null, ts = 1000 + Fx.MIN, precise = false, title = "Bob")), Fx.T0).counts())
+            assertEquals(IngestResult(0, 1, 0, 0), repo.ingest(Fx.parsed(same.copy(text = "Hello migrated world, edited")), Fx.T0).counts())
             assertEquals(2, repo.observeStats().first().totalMessages)
             assertEquals(1, repo.observeStats().first().totalConversations)
             // New writes after migration work end to end.

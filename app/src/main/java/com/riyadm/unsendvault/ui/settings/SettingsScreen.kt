@@ -39,6 +39,7 @@ import androidx.compose.material.icons.outlined.PrivacyTip
 import androidx.compose.material.icons.outlined.Restore
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.Shield
+import androidx.compose.material.icons.outlined.Tab
 import androidx.compose.material.icons.outlined.Timer
 import androidx.compose.material.icons.outlined.VisibilityOff
 import androidx.compose.material.icons.outlined.Widgets
@@ -73,6 +74,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.riyadm.unsendvault.R
+import com.riyadm.unsendvault.core.model.StartTab
 import com.riyadm.unsendvault.core.model.ThemeMode
 import com.riyadm.unsendvault.core.model.VaultSettings
 import com.riyadm.unsendvault.data.BackupResult
@@ -101,9 +103,10 @@ object SettingsTestTags {
     const val RETENTION = "settings_retention"
     const val DELETE_ALL = "settings_delete_all"
     const val EXPORT = "settings_export"
+    const val START_TAB = "settings_start_tab"
 }
 
-private enum class SettingsDialog { NONE, RETENTION, TIMEOUT, THEME, REMINDER, DELETE_ALL }
+private enum class SettingsDialog { NONE, RETENTION, TIMEOUT, THEME, START_TAB, REMINDER, DELETE_ALL }
 
 @Composable
 fun SettingsRoute(
@@ -255,6 +258,8 @@ fun SettingsScreen(
                     onClick = onOpenAccessSettings,
                 )
 
+                NotificationSettingsSection(s, viewModel)
+
                 // Retention
                 SectionHeader(stringResource(R.string.settings_section_retention))
                 ValueRow(
@@ -321,6 +326,13 @@ fun SettingsScreen(
 
                 // Appearance
                 SectionHeader(stringResource(R.string.settings_section_appearance))
+                ValueRow(
+                    title = stringResource(R.string.settings_start_tab),
+                    value = startTabLabel(s.startTab),
+                    icon = Icons.Outlined.Tab,
+                    onClick = { dialog = SettingsDialog.START_TAB },
+                    modifier = Modifier.testTag(SettingsTestTags.START_TAB),
+                )
                 ValueRow(
                     title = stringResource(R.string.settings_theme),
                     value = themeLabel(s.themeMode),
@@ -476,6 +488,17 @@ private fun SettingsDialogs(dialog: SettingsDialog, s: VaultSettings, viewModel:
             },
             onDismiss = onDismiss,
         )
+        SettingsDialog.START_TAB -> ChoiceDialog(
+            title = stringResource(R.string.settings_start_tab),
+            options = StartTab.entries,
+            selected = s.startTab,
+            label = { startTabLabel(it) },
+            onSelect = {
+                viewModel.setStartTab(it)
+                onDismiss()
+            },
+            onDismiss = onDismiss,
+        )
         SettingsDialog.REMINDER -> ChoiceDialog(
             title = stringResource(R.string.backup_reminder),
             options = SettingsViewModel.REMINDER_OPTIONS,
@@ -515,6 +538,15 @@ private fun timeoutLabel(seconds: Int): String = when {
     seconds < 60 -> pluralStringResource(R.plurals.timeout_seconds, seconds, seconds)
     else -> pluralStringResource(R.plurals.timeout_minutes, seconds / 60, seconds / 60)
 }
+
+@Composable
+private fun startTabLabel(tab: StartTab): String = stringResource(
+    when (tab) {
+        StartTab.RECENT -> R.string.home_tab_recent
+        StartTab.CHATS -> R.string.home_tab_conversations
+        StartTab.APPS -> R.string.home_tab_apps
+    },
+)
 
 @Composable
 private fun themeLabel(mode: ThemeMode): String = stringResource(

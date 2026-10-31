@@ -17,7 +17,9 @@ the two disagree: the domain contracts in `core/model/Models.kt`, `capture/Captu
 | Background | NotificationListenerService only; WorkManager for the daily retention job; Glance for widgets |
 | Network | Only the opt-in update check (`update` package, HTTPS GET to api.github.com, at most daily while the app is open; see UPDATES.md). Build fails on any permission outside the allowlist (`verifyPermissions<Variant>`); a test fails if network APIs appear outside `update` |
 | Backup | `allowBackup=false`, data extraction rules exclude everything; encrypted export via the Storage Access Framework is the only backup path |
-| Not used | Foreground services, exact alarms, `POST_NOTIFICATIONS`, accessibility services, SMS permissions, analytics, crash reporters |
+| Own notifications | Opt-in only (`notify` package): silent per-chat "messages saved" notifications, `POST_NOTIFICATIONS` requested on Android 13+ when the user turns them on |
+| Reply | `reply` package: on demand, reads one app's active notifications through the bound listener and fires the chat's own RemoteInput reply action; nothing tracked on the capture path |
+| Not used | Foreground services, exact alarms, accessibility services, SMS permissions, analytics, crash reporters |
 
 ## 2. Layers and packages
 

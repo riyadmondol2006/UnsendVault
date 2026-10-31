@@ -6,6 +6,21 @@ Releases are built and published automatically from `main` and numbered `MAJOR.M
 
 ## Unreleased
 
+Requested in [issue #3](https://github.com/riyadmondol2006/UnsendVault/issues/3).
+
+### Added
+- Reply from a chat: when the chat app's notification for that chat is still showing and offers a reply button,
+  UnsendVault shows a reply box that sends through that action (as a watch or car reply would). It picks only a
+  notification that belongs to exactly this chat. When no such notification is showing, the chat explains why and
+  offers to open the chat app.
+- Optional "messages saved" notifications (Settings > Notifications, off by default): one silent notification per
+  chat with the count, grouped; tap to open the chat. Names and text only with a second opt-in, never on the lock
+  screen, never while the app lock is on. Not posted for catch-up after a reboot, old history, your own messages or
+  the chat you have open. Adds the `POST_NOTIFICATIONS` permission (asked for on Android 13+ when you turn it on).
+- "Open on" setting (Settings > Appearance): start the archive on Recent, Chats or Apps.
+
+## 1.0.27 (2026-10-30)
+
 ### Added
 - Optional update check: after setup the app asks once whether it may check GitHub for new releases. If allowed, it
   asks `api.github.com` at most once a day while the app is open and shows a dialog with Download / Release page /

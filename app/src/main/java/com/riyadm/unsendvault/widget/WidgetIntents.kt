@@ -17,6 +17,9 @@ object WidgetIntents {
     /** Long. Archived message id to open (with [DESTINATION_MESSAGE]). */
     const val EXTRA_MESSAGE_ID = "com.riyadm.unsendvault.extra.MESSAGE_ID"
 
+    /** Long. Conversation id to open (with [DESTINATION_CONVERSATION]); used by saved-message notifications. */
+    const val EXTRA_CONVERSATION_ID = "com.riyadm.unsendvault.extra.CONVERSATION_ID"
+
     /** String. Source-app package to filter the archive by (with [DESTINATION_APP]). */
     const val EXTRA_PACKAGE_NAME = "com.riyadm.unsendvault.extra.PACKAGE_NAME"
 
@@ -26,6 +29,7 @@ object WidgetIntents {
     const val DESTINATION_APPS = "apps"
     const val DESTINATION_MESSAGE = "message"
     const val DESTINATION_APP = "app"
+    const val DESTINATION_CONVERSATION = "conversation"
     const val DESTINATION_NOTIFICATION_ACCESS = "notification_access"
 
     val DestinationKey = ActionParameters.Key<String>(EXTRA_DESTINATION)

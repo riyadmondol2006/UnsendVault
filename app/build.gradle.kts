@@ -70,6 +70,7 @@ abstract class VerifyPermissionsTask : DefaultTask() {
             .findAll(text).map { it.groupValues[1] }.toSet()
         val allowed = setOf(
             "android.permission.INTERNET", // update check only (opt-in)
+            "android.permission.POST_NOTIFICATIONS", // opt-in saved-message notifications (Android 13+ runtime grant)
             "android.permission.USE_BIOMETRIC", // app lock (API 28+)
             "android.permission.USE_FINGERPRINT", // app lock on API 26-27, added by androidx.biometric
             "android.permission.WAKE_LOCK", // WorkManager (used by Glance + daily retention job)

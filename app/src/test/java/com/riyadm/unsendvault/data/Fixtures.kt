@@ -42,6 +42,10 @@ object Fx {
         DeletionMarker(pkg, key, sender, text, "testadapter", ts)
 }
 
+/** The four counters only (drops the per-row details used by saved-message notifications). */
+fun com.riyadm.unsendvault.capture.IngestResult.counts() =
+    com.riyadm.unsendvault.capture.IngestResult(inserted, updated, unchanged, markedPossiblyDeleted)
+
 /** In-memory Room database on the framework (Robolectric) SQLite, with a random field-encryption key. */
 abstract class RoomTestBase {
     protected lateinit var context: Context

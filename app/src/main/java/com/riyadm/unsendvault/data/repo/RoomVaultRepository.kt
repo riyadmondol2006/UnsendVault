@@ -146,6 +146,8 @@ class RoomVaultRepository(
             val dao = db.dao()
             val counter = Counter()
             val touched = mutableSetOf<Long>()
+            val saved = ArrayList<IngestResult.SavedRef>()
+            val markedIn = HashSet<Long>()
             val notificationIndex = cipher.blindIndex(parsed.notificationKey, IndexDomain.NOTIFICATION)
             val conversations = ConversationCache(dao, cipher)
 
@@ -161,17 +163,24 @@ class RoomVaultRepository(
                 if (markerTexts[c.packageName to c.conversationKey]?.contains(normalized) == true) continue
                 val conversation = conversations.upsert(c, parsed.appLabel, capturedAt)
                 when (ingestMessage(dao, cipher, conversation.id, c, normalized, notificationIndex, capturedAt, batch)) {
-                    Outcome.INSERTED -> { counter.inserted++; touched += conversation.id }
+                    Outcome.INSERTED -> {
+                        counter.inserted++
+                        touched += conversation.id
+                        saved += IngestResult.SavedRef(conversation.id, c)
+                    }
                     Outcome.UPDATED -> { counter.updated++; touched += conversation.id }
                     Outcome.UNCHANGED -> counter.unchanged++
                 }
             }
             for (marker in parsed.deletionMarkers) {
                 val conversation = conversations.find(marker.packageName, marker.conversationKey) ?: continue
-                if (applyMarker(dao, cipher, conversation.id, marker, capturedAt)) counter.marked++
+                if (applyMarker(dao, cipher, conversation.id, marker, capturedAt)) {
+                    counter.marked++
+                    markedIn += conversation.id
+                }
             }
             if (touched.isNotEmpty()) recomputeAggregates(dao, cipher, touched.toList())
-            IngestResult(counter.inserted, counter.updated, counter.unchanged, counter.marked)
+            IngestResult(counter.inserted, counter.updated, counter.unchanged, counter.marked, saved, markedIn)
         }
     }
 

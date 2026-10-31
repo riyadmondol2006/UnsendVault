@@ -85,6 +85,7 @@ class InMemoryVaultRepository(
     override suspend fun ingest(parsed: ParsedNotification, capturedAt: Long): IngestResult {
         var inserted = 0
         var unchanged = 0
+        val saved = ArrayList<IngestResult.SavedRef>()
         parsed.messages.forEach { c ->
             val conv = conversations.value.firstOrNull { it.packageName == c.packageName && it.conversationKey == c.conversationKey }
                 ?: Conversation(nextConversationId++, c.packageName, parsed.appLabel, c.conversationKey, c.conversationTitle, c.isGroup, c.messageTimestamp, 0, null)
@@ -94,6 +95,7 @@ class InMemoryVaultRepository(
                 unchanged++
             } else {
                 inserted++
+                saved += IngestResult.SavedRef(conv.id, c)
                 messages.update {
                     it + ArchivedMessage(
                         nextId++, conv.id, c.packageName, parsed.appLabel, c.conversationTitle, c.sender, c.text, c.contentKind,
@@ -102,7 +104,7 @@ class InMemoryVaultRepository(
                 }
             }
         }
-        return IngestResult(inserted, 0, unchanged, 0)
+        return IngestResult(inserted, 0, unchanged, 0, saved)
     }
 
     override suspend fun recordRemoval(event: RemovalEvent) = Unit

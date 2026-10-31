@@ -136,6 +136,7 @@ private fun MainScaffold(widthSizeClass: WindowWidthSizeClass, onLockNow: () -> 
             DeepLink.Home -> navController.navigateTopLevel(TopLevel.HOME)
             DeepLink.Favorites -> navController.navigateTopLevel(TopLevel.FAVORITES)
             is DeepLink.Message -> navController.navigate(MessageDest(link.id)) { launchSingleTop = true }
+            is DeepLink.Conversation -> navController.navigate(ConversationDest(link.id)) { launchSingleTop = true }
             DeepLink.NotificationAccess -> context.startFirstAvailable(
                 context.appContainer.listenerStatus.accessSettingsIntent(),
                 context.appDetailsIntent(),
@@ -193,12 +194,22 @@ private fun NavHostController.navigateTopLevel(item: TopLevel) {
     }
 }
 
+private fun conversationViewModel(id: Long, c: AppContainer) =
+    ConversationViewModel(id, c.vaultRepository, replyGateway = c.replyGateway)
+
+/** Saved-message notifications: clear the chat's notification while it is open, and don't post new ones for it. */
+private fun AppContainer.onConversationVisible(id: Long, visible: Boolean) {
+    if (!settingsRepository.current.savedMessageNotifications) return
+    if (visible) savedMessageNotifier.onConversationVisible(id) else savedMessageNotifier.onConversationHidden(id)
+}
+
 private fun settingsViewModelFactory(c: AppContainer) = SettingsViewModel(
     settingsRepository = c.settingsRepository,
     vault = c.vaultRepository,
     retentionScheduler = c.retentionScheduler,
     installedApps = PackageManagerAppsSource(c.context),
     demoDataInserter = if (BuildConfig.DEBUG) ({ DemoData.insert(c.vaultRepository) }) else null,
+    cancelSavedNotifications = { c.savedMessageNotifier.cancelAll() },
 )
 
 @Composable
@@ -223,10 +234,11 @@ private fun AppNavHost(navController: NavHostController, isWide: Boolean, onLock
                 conversationPane = { id, onClose ->
                     CompositionLocalProvider(LocalScreenInsets provides noInsets) {
                         ConversationRoute(
-                            viewModel = containerViewModel(key = "conversation-$id") { ConversationViewModel(id, it.vaultRepository) },
+                            viewModel = containerViewModel(key = "conversation-$id") { conversationViewModel(id, it) },
                             onBack = null,
                             onClosed = onClose,
                             onOpenMessage = { navController.navigate(MessageDest(it)) },
+                            onVisibleChanged = { visible -> container.onConversationVisible(id, visible) },
                         )
                     }
                 },
@@ -253,10 +265,11 @@ private fun AppNavHost(navController: NavHostController, isWide: Boolean, onLock
             val back = rememberBack(navController)
             val id = backStackEntry.toRoute<ConversationDest>().id
             ConversationRoute(
-                viewModel = containerViewModel { ConversationViewModel(id, it.vaultRepository) },
+                viewModel = containerViewModel { conversationViewModel(id, it) },
                 onBack = { back() },
                 onClosed = { back() },
                 onOpenMessage = { navController.navigate(MessageDest(it)) },
+                onVisibleChanged = { visible -> container.onConversationVisible(id, visible) },
             )
         }
         composable<MessageDest> { backStackEntry ->

@@ -62,7 +62,7 @@ The release notes contain install instructions, the commits since the previous `
 - `aapt2 dump badging` reports application id `com.riyadm.unsendvault` with the computed `versionCode` and
   `versionName`, and the APK is not debuggable;
 - the APK declares no network-state permission (`ACCESS_NETWORK_STATE`, `ACCESS_WIFI_STATE`, `CHANGE_NETWORK_STATE`)
-  and no permission outside the allowlist `INTERNET` (opt-in update check only), `USE_BIOMETRIC`, `USE_FINGERPRINT`,
+  and no permission outside the allowlist `INTERNET` (opt-in update check only), `POST_NOTIFICATIONS` (opt-in saved-message notifications), `USE_BIOMETRIC`, `USE_FINGERPRINT`,
   `WAKE_LOCK`, `RECEIVE_BOOT_COMPLETED`,
   `com.riyadm.unsendvault.DYNAMIC_RECEIVER_NOT_EXPORTED_PERMISSION`. This mirrors the Gradle task
   `verifyPermissions<Variant>`, which already checks the merged manifest at build time; the script checks the final APK.

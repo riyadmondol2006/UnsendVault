@@ -50,6 +50,8 @@ It **cannot**:
 - tell whether a message was deleted just because its notification disappeared. Dismissing or reading a message also
   removes notifications, so that is never treated as deletion;
 - fetch anything from a server, a chat backup or another device. It is not a recovery tool and not a monitoring tool.
+- reply once a chat's notification is gone. Replying from UnsendVault works only through the chat app's own
+  notification reply button, while that notification is still showing; UnsendVault never connects to a chat service.
 
 Some phone makers stop background apps aggressively. If capture stops, the app shows it and helps you reconnect;
 see [Reliability](#reliability).
@@ -57,6 +59,12 @@ see [Reliability](#reliability).
 ## Features
 
 - Archive by app, conversation and message, newest first; full-text search with app and date filters
+- Reply from a chat in UnsendVault through the chat app's own notification reply action, while that notification is
+  showing (WhatsApp, WhatsApp Business, Viber, Telegram and others that offer a reply button). Otherwise an
+  "Open app" button takes you to the chat app
+- Optional "messages saved" notification per chat (off by default, silent); tap it to open the chat. Names and
+  text only if you allow it, never on the lock screen and never while the app lock is on
+- Choose which tab the archive opens on: Recent, Chats or Apps
 - Message detail with update history, capture times, and deletion evidence when there is any
 - Favorites (kept by auto-delete)
 - Pause and resume capture, exclude apps, "messages only" mode (default on)
@@ -135,6 +143,8 @@ Full details: [PRIVACY.md](PRIVACY.md). Security reports: [SECURITY.md](SECURITY
 | Permission | Why |
 |---|---|
 | Notification Access (granted by you in system settings) | Read message notifications |
+| `INTERNET` | Only the opt-in update check to `api.github.com` |
+| `POST_NOTIFICATIONS` | Only the optional "messages saved" notifications (off by default; Android 13+ asks you first) |
 | `USE_BIOMETRIC` / `USE_FINGERPRINT` | App lock |
 | `WAKE_LOCK`, `RECEIVE_BOOT_COMPLETED` | Used by WorkManager for the daily auto-delete job and widget updates; reschedules after reboot |
 

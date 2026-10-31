@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Start tab -->
+    <string name="settings_start_tab">Open on</string>
+
+    <!-- Saved-message notifications -->
+    <string name="settings_section_notifications">Notifications</string>
+    <string name="settings_saved_notifications">Notify when messages are saved</string>
+    <string name="settings_saved_notifications_summary">A silent notification per chat; tap it to open the chat here</string>
+    <string name="settings_saved_notifications_blocked">Notifications are blocked for UnsendVault. Tap to open system settings.</string>
+    <string name="settings_notification_content">Show names and text in notifications</string>
+    <string name="settings_notification_content_summary">Off: notifications only name the app and the count. Never shown on the lock screen.</string>
+    <string name="settings_notification_content_locked">Unavailable while the app lock is on</string>
+    <string name="notif_channel_saved">Saved messages</string>
+    <string name="notif_channel_saved_description">Silent notice when UnsendVault saves new messages, if you turned it on</string>
+    <string name="notif_saved_title_private">Saved from %1$s</string>
+    <string name="notif_public_title">New messages saved</string>
+    <string name="notif_saved_and_deleted">%1$s · %2$s</string>
+    <plurals name="notif_saved_count">
+        <item quantity="one">%d new message saved</item>
+        <item quantity="other">%d new messages saved</item>
+    </plurals>
+    <plurals name="notif_deleted_count">
+        <item quantity="one">%d marked possibly deleted</item>
+        <item quantity="other">%d marked possibly deleted</item>
+    </plurals>
+
+    <!-- Reply -->
+    <string name="reply_hint">Reply via %1$s</string>
+    <string name="reply_send">Send reply</string>
+    <string name="reply_caption">Sent through %1$s\'s own notification. Check %1$s to confirm delivery.</string>
+    <string name="reply_unavailable">Replies work only while %1$s\'s notification for this chat is still showing.</string>
+    <string name="reply_listener_off">Replies need capture to be on and Notification Access granted.</string>
+    <string name="reply_open_app">Open %1$s</string>
+    <string name="reply_sent">Handed to %1$s. Check there that it was delivered.</string>
+    <string name="reply_gone">%1$s\'s notification is gone, so the reply wasn\'t sent. Open %1$s to reply.</string>
+    <string name="reply_failed">%1$s didn\'t accept the reply. Open %1$s to reply.</string>
+</resources>

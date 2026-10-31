@@ -8,6 +8,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.consumeWindowInsets
+import androidx.compose.foundation.layout.imePadding
 import androidx.compose.foundation.layout.WindowInsetsSides
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,6 +24,7 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.automirrored.filled.Send
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.DeleteOutline
@@ -32,6 +35,9 @@ import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -46,6 +52,7 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
@@ -57,10 +64,13 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.font.FontStyle
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.lifecycle.compose.LifecycleResumeEffect
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.riyadm.unsendvault.R
 import com.riyadm.unsendvault.core.model.ArchivedMessage
 import com.riyadm.unsendvault.core.model.ContentKind
+import com.riyadm.unsendvault.reply.ReplyAvailability
+import com.riyadm.unsendvault.reply.ReplyResult
 import com.riyadm.unsendvault.ui.common.LocalScreenInsets
 import com.riyadm.unsendvault.ui.common.TimeFormatter
 import com.riyadm.unsendvault.ui.common.rememberTimeFormatter
@@ -74,6 +84,9 @@ import com.riyadm.unsendvault.ui.components.messageBodyText
 object ConversationTestTags {
     const val LIST = "conversation_list"
     const val DELETE_SELECTED = "conversation_delete_selected"
+    const val REPLY_FIELD = "conversation_reply_field"
+    const val REPLY_SEND = "conversation_reply_send"
+    const val REPLY_UNAVAILABLE = "conversation_reply_unavailable"
     fun message(id: Long) = "conversation_message_$id"
 }
 
@@ -83,10 +96,20 @@ fun ConversationRoute(
     onBack: (() -> Unit)?,
     onClosed: () -> Unit,
     onOpenMessage: (Long) -> Unit,
+    /** Called with true while the chat is resumed on screen, false when it leaves (saved-message notifications). */
+    onVisibleChanged: (Boolean) -> Unit = {},
 ) {
     val state by viewModel.state.collectAsStateWithLifecycle()
     val snackbar = remember { SnackbarHostState() }
     val resources = LocalResources.current
+    val context = LocalContext.current
+    var replyDraft by rememberSaveable { mutableStateOf("") }
+    LifecycleResumeEffect(viewModel) {
+        onVisibleChanged(true)
+        viewModel.refreshReply()
+        onPauseOrDispose { onVisibleChanged(false) }
+    }
+    val appLabel = state.conversation?.appLabel.orEmpty()
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
             when (event) {
@@ -94,10 +117,41 @@ fun ConversationRoute(
                 is ConversationEvent.MessagesDeleted -> snackbar.showSnackbar(
                     resources.getQuantityString(R.plurals.messages_deleted, event.count, event.count),
                 )
+                is ConversationEvent.Reply -> when (event.result) {
+                    ReplyResult.SENT -> {
+                        replyDraft = ""
+                        snackbar.showSnackbar(resources.getString(R.string.reply_sent, appLabel))
+                    }
+                    ReplyResult.UNAVAILABLE -> snackbar.showSnackbar(resources.getString(R.string.reply_gone, appLabel))
+                    ReplyResult.FAILED -> snackbar.showSnackbar(resources.getString(R.string.reply_failed, appLabel))
+                    ReplyResult.EMPTY -> Unit
+                }
+            }
+        }
+    }
+    val packageName = state.conversation?.packageName
+    val launchIntent = remember(packageName) {
+        packageName?.let { pkg ->
+            try {
+                context.packageManager.getLaunchIntentForPackage(pkg)
+            } catch (e: Exception) {
+                null
             }
         }
     }
     ConversationScreen(
+        replyDraft = replyDraft,
+        onReplyDraftChange = { replyDraft = it },
+        onSendReply = { viewModel.sendReply(replyDraft) },
+        onOpenSourceApp = launchIntent?.let { intent ->
+            {
+                try {
+                    context.startActivity(intent)
+                } catch (e: Exception) {
+                    // App vanished or blocked its launcher activity; nothing else to do.
+                }
+            }
+        },
         state = state,
         snackbarHostState = snackbar,
         onBack = onBack,
@@ -121,6 +175,10 @@ fun ConversationScreen(
     onDeleteSelected: () -> Unit,
     onDeleteConversation: () -> Unit,
     snackbarHostState: SnackbarHostState? = null,
+    replyDraft: String = "",
+    onReplyDraftChange: (String) -> Unit = {},
+    onSendReply: () -> Unit = {},
+    onOpenSourceApp: (() -> Unit)? = null,
 ) {
     val formatter = rememberTimeFormatter()
     var confirmDeleteSelected by rememberSaveable { mutableStateOf(false) }
@@ -187,16 +245,17 @@ fun ConversationScreen(
             }
         },
     ) { padding ->
+      Column(Modifier.fillMaxSize().padding(padding).consumeWindowInsets(padding).imePadding()) {
         if (!state.loading && state.messages.isEmpty()) {
             EmptyState(
                 Icons.Outlined.Forum,
                 stringResource(R.string.conversation_empty_title),
                 stringResource(R.string.conversation_empty_body),
-                Modifier.padding(padding),
+                Modifier.weight(1f),
             )
         } else {
             LazyColumn(
-                modifier = Modifier.fillMaxSize().padding(padding).testTag(ConversationTestTags.LIST),
+                modifier = Modifier.fillMaxWidth().weight(1f).testTag(ConversationTestTags.LIST),
                 reverseLayout = true,
                 contentPadding = PaddingValues(horizontal = 12.dp, vertical = 12.dp),
                 verticalArrangement = Arrangement.spacedBy(6.dp),
@@ -218,6 +277,19 @@ fun ConversationScreen(
                 }
             }
         }
+        val conversation = state.conversation
+        if (!state.selecting && conversation != null && state.reply != null) {
+            ReplyBar(
+                availability = state.reply,
+                appLabel = conversation.appLabel,
+                draft = replyDraft,
+                sending = state.sendingReply,
+                onDraftChange = onReplyDraftChange,
+                onSend = onSendReply,
+                onOpenSourceApp = onOpenSourceApp,
+            )
+        }
+      }
     }
 
     if (confirmDeleteSelected) {
@@ -331,3 +403,66 @@ private fun MessageBubble(
         }
     }
 }
+
+@Composable
+private fun ReplyBar(
+    availability: ReplyAvailability,
+    appLabel: String,
+    draft: String,
+    sending: Boolean,
+    onDraftChange: (String) -> Unit,
+    onSend: () -> Unit,
+    onOpenSourceApp: (() -> Unit)?,
+) {
+    val colors = MaterialTheme.colorScheme
+    Column(Modifier.fillMaxWidth()) {
+        HorizontalDivider()
+        when (availability) {
+            ReplyAvailability.AVAILABLE -> Column(Modifier.padding(horizontal = 12.dp, vertical = 8.dp)) {
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = draft,
+                        onValueChange = { if (it.length <= MAX_REPLY_LENGTH) onDraftChange(it) },
+                        placeholder = { Text(stringResource(R.string.reply_hint, appLabel)) },
+                        maxLines = 4,
+                        enabled = !sending,
+                        modifier = Modifier.weight(1f).testTag(ConversationTestTags.REPLY_FIELD),
+                    )
+                    IconButton(
+                        onClick = onSend,
+                        enabled = draft.isNotBlank() && !sending,
+                        modifier = Modifier.testTag(ConversationTestTags.REPLY_SEND),
+                    ) {
+                        Icon(Icons.AutoMirrored.Filled.Send, contentDescription = stringResource(R.string.reply_send))
+                    }
+                }
+                Text(
+                    stringResource(R.string.reply_caption, appLabel),
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.padding(top = 4.dp),
+                )
+            }
+            ReplyAvailability.NO_NOTIFICATION, ReplyAvailability.LISTENER_OFF -> Row(
+                Modifier.fillMaxWidth().padding(start = 16.dp, end = 8.dp, top = 4.dp, bottom = 4.dp).testTag(ConversationTestTags.REPLY_UNAVAILABLE),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                Text(
+                    if (availability == ReplyAvailability.LISTENER_OFF) {
+                        stringResource(R.string.reply_listener_off)
+                    } else {
+                        stringResource(R.string.reply_unavailable, appLabel)
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = colors.onSurfaceVariant,
+                    modifier = Modifier.weight(1f),
+                )
+                if (onOpenSourceApp != null) {
+                    TextButton(onClick = onOpenSourceApp) { Text(stringResource(R.string.reply_open_app, appLabel)) }
+                }
+            }
+        }
+    }
+}
+
+private const val MAX_REPLY_LENGTH = 4_000

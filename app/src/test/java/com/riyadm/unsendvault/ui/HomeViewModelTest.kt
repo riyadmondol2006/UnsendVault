@@ -1,6 +1,7 @@
 package com.riyadm.unsendvault.ui
 
 import app.cash.turbine.test
+import com.riyadm.unsendvault.core.model.StartTab
 import com.riyadm.unsendvault.core.model.VaultSettings
 import com.riyadm.unsendvault.data.fake.InMemorySettingsRepository
 import com.riyadm.unsendvault.data.fake.InMemoryVaultRepository
@@ -8,6 +9,7 @@ import com.riyadm.unsendvault.ui.home.CaptureStatus
 import com.riyadm.unsendvault.ui.home.HomeTab
 import com.riyadm.unsendvault.ui.home.HomeViewModel
 import com.riyadm.unsendvault.ui.home.captureStatusOf
+import com.riyadm.unsendvault.ui.home.toHomeTab
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
@@ -122,5 +124,26 @@ class HomeViewModelTest {
             vault.deleteConversation(Fixtures.club.id)
             assertNull(awaitMatching { it.conversations.size == 2 }.selectedConversationId)
         }
+    }
+
+    @Test
+    fun startTabSettingSelectsInitialTab_untilUserPicks() = runTest {
+        settings.update { it.copy(startTab = StartTab.CHATS) }
+        val vm = vm()
+        vm.state.testState {
+            assertEquals(HomeTab.CONVERSATIONS, awaitMatching { !it.loading }.tab)
+            vm.selectTab(HomeTab.APPS)
+            assertEquals(HomeTab.APPS, awaitMatching { it.tab == HomeTab.APPS }.tab)
+            // Changing the setting later doesn't yank the user off the tab they picked.
+            settings.update { it.copy(startTab = StartTab.RECENT) }
+            expectNoEvents()
+        }
+        assertEquals(HomeTab.RECENT, StartTab.RECENT.toHomeTab())
+        assertEquals(HomeTab.APPS, StartTab.APPS.toHomeTab())
+    }
+
+    @Test
+    fun defaultStartTabIsRecent() = runTest {
+        vm().state.testState { assertEquals(HomeTab.RECENT, awaitMatching { !it.loading }.tab) }
     }
 }

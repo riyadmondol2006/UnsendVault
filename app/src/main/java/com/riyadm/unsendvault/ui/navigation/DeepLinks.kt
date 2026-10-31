@@ -5,12 +5,13 @@ import com.riyadm.unsendvault.widget.WidgetIntents
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 
-/** A navigation request carried by a widget tap. Consumed once, only after the lock gate has opened. */
+/** A navigation request carried by a widget or saved-message notification tap. Consumed once, only after the lock gate has opened. */
 sealed interface DeepLink {
     data object Home : DeepLink
     data object Favorites : DeepLink
     data object NotificationAccess : DeepLink
     data class Message(val id: Long) : DeepLink
+    data class Conversation(val id: Long) : DeepLink
 }
 
 /** Holds the latest unconsumed [DeepLink]. Written by MainActivity (onCreate/onNewIntent), read by the main scaffold. */
@@ -34,6 +35,8 @@ object DeepLinks {
             WidgetIntents.DESTINATION_NOTIFICATION_ACCESS -> DeepLink.NotificationAccess
             WidgetIntents.DESTINATION_MESSAGE ->
                 intent.getLongExtra(WidgetIntents.EXTRA_MESSAGE_ID, -1L).takeIf { it > 0 }?.let(DeepLink::Message) ?: DeepLink.Home
+            WidgetIntents.DESTINATION_CONVERSATION ->
+                intent.getLongExtra(WidgetIntents.EXTRA_CONVERSATION_ID, -1L).takeIf { it > 0 }?.let(DeepLink::Conversation) ?: DeepLink.Home
             else -> DeepLink.Home
         }
     }

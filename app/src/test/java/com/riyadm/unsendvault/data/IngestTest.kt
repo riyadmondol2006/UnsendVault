@@ -29,10 +29,10 @@ class IngestTest : RoomTestBase() {
 
     @Test
     fun precise_sameIdentitySameText_isUnchanged() = runBlocking {
-        assertEquals(IngestResult(1, 0, 0, 0), repo.ingest(parsed(msg("hi")), T0))
-        assertEquals(IngestResult(0, 0, 1, 0), repo.ingest(parsed(msg("hi")), T0 + 1000))
+        assertEquals(IngestResult(1, 0, 0, 0), repo.ingest(parsed(msg("hi")), T0).counts())
+        assertEquals(IngestResult(0, 0, 1, 0), repo.ingest(parsed(msg("hi")), T0 + 1000).counts())
         // Whitespace/invisible-character differences are the same text.
-        assertEquals(IngestResult(0, 0, 1, 0), repo.ingest(parsed(msg("  hi​ ")), T0 + 2000))
+        assertEquals(IngestResult(0, 0, 1, 0), repo.ingest(parsed(msg("  hi​ ")), T0 + 2000).counts())
         assertEquals(1, all().size)
     }
 
@@ -40,7 +40,7 @@ class IngestTest : RoomTestBase() {
     fun precise_sameIdentityDifferentText_recordsRevision() = runBlocking {
         repo.ingest(parsed(msg("first")), T0)
         val r = repo.ingest(parsed(msg("second (edited)")), T0 + 5_000)
-        assertEquals(IngestResult(0, 1, 0, 0), r)
+        assertEquals(IngestResult(0, 1, 0, 0), r.counts())
         val m = all().single()
         assertEquals("second (edited)", m.text)
         assertEquals(2, m.revisionCount)
@@ -65,11 +65,11 @@ class IngestTest : RoomTestBase() {
     @Test
     fun imprecise_sameTextWithinWindow_isDeduped_outsideWindowIsNew() = runBlocking {
         repo.ingest(parsed(msg("see you", ts = T0, precise = false)), T0)
-        assertEquals(IngestResult(0, 0, 1, 0), repo.ingest(parsed(msg("see you", ts = T0 + 9 * MIN, precise = false)), T0))
-        assertEquals(IngestResult(0, 0, 1, 0), repo.ingest(parsed(msg("see you", ts = T0 - 9 * MIN, precise = false)), T0))
-        assertEquals(IngestResult(1, 0, 0, 0), repo.ingest(parsed(msg("see you", ts = T0 + 11 * MIN, precise = false)), T0))
+        assertEquals(IngestResult(0, 0, 1, 0), repo.ingest(parsed(msg("see you", ts = T0 + 9 * MIN, precise = false)), T0).counts())
+        assertEquals(IngestResult(0, 0, 1, 0), repo.ingest(parsed(msg("see you", ts = T0 - 9 * MIN, precise = false)), T0).counts())
+        assertEquals(IngestResult(1, 0, 0, 0), repo.ingest(parsed(msg("see you", ts = T0 + 11 * MIN, precise = false)), T0).counts())
         // Different text at the same time is a different message (no update history for imprecise identity).
-        assertEquals(IngestResult(1, 0, 0, 0), repo.ingest(parsed(msg("see you!!", ts = T0, precise = false)), T0))
+        assertEquals(IngestResult(1, 0, 0, 0), repo.ingest(parsed(msg("see you!!", ts = T0, precise = false)), T0).counts())
         assertEquals(3, all().size)
     }
 
@@ -77,18 +77,18 @@ class IngestTest : RoomTestBase() {
     fun imprecise_thenPrecise_upgradesInsteadOfDuplicating() = runBlocking {
         repo.ingest(parsed(msg("lunch?", ts = T0, precise = false)), T0)
         val r = repo.ingest(parsed(msg("lunch?", ts = T0 + 2 * MIN, precise = true)), T0)
-        assertEquals(IngestResult(0, 0, 1, 0), r)
+        assertEquals(IngestResult(0, 0, 1, 0), r.counts())
         val m = all().single()
         assertEquals(T0 + 2 * MIN, m.messageTimestamp)
         // And now a precise duplicate is found by exact identity.
-        assertEquals(IngestResult(0, 0, 1, 0), repo.ingest(parsed(msg("lunch?", ts = T0 + 2 * MIN)), T0))
+        assertEquals(IngestResult(0, 0, 1, 0), repo.ingest(parsed(msg("lunch?", ts = T0 + 2 * MIN)), T0).counts())
     }
 
     @Test
     fun differentSendersOrConversations_areDistinct() = runBlocking {
         repo.ingest(parsed(msg("yo", sender = "Alice"), msg("yo", sender = "Bob"), msg("yo", sender = null), msg("yo", key = "c2")), T0)
         assertEquals(4, all().size)
-        assertEquals(IngestResult(0, 0, 4, 0), repo.ingest(parsed(msg("yo", sender = "Alice"), msg("yo", sender = "Bob"), msg("yo", sender = null), msg("yo", key = "c2")), T0))
+        assertEquals(IngestResult(0, 0, 4, 0), repo.ingest(parsed(msg("yo", sender = "Alice"), msg("yo", sender = "Bob"), msg("yo", sender = null), msg("yo", key = "c2")), T0).counts())
     }
 
     @Test
@@ -96,8 +96,8 @@ class IngestTest : RoomTestBase() {
         repo.ingest(parsed(msg("my real text")), T0)
         val r1 = repo.ingest(parsed(msg("Sensitive notification content hidden", kind = ContentKind.SYSTEM_REDACTED)), T0 + 1)
         val r2 = repo.ingest(parsed(msg("[filtered]", kind = ContentKind.FILTERED_SENSITIVE)), T0 + 2)
-        assertEquals(IngestResult(0, 0, 1, 0), r1)
-        assertEquals(IngestResult(0, 0, 1, 0), r2)
+        assertEquals(IngestResult(0, 0, 1, 0), r1.counts())
+        assertEquals(IngestResult(0, 0, 1, 0), r2.counts())
         val m = all().single()
         assertEquals("my real text", m.text)
         assertEquals(ContentKind.TEXT, m.contentKind)
@@ -107,7 +107,7 @@ class IngestTest : RoomTestBase() {
     @Test
     fun realText_replacesPlaceholder_withoutRevision() = runBlocking {
         repo.ingest(parsed(msg("Content hidden", kind = ContentKind.SYSTEM_REDACTED)), T0)
-        assertEquals(IngestResult(0, 1, 0, 0), repo.ingest(parsed(msg("actual words")), T0 + 1))
+        assertEquals(IngestResult(0, 1, 0, 0), repo.ingest(parsed(msg("actual words")), T0 + 1).counts())
         val m = all().single()
         assertEquals("actual words", m.text)
         assertEquals(ContentKind.TEXT, m.contentKind)
@@ -119,7 +119,7 @@ class IngestTest : RoomTestBase() {
     fun marker_exactIdentity_marksAndKeepsOriginalText() = runBlocking {
         repo.ingest(parsed(msg("secret plan", sender = "Bob", ts = T0)), T0)
         val r = repo.ingest(parsed(markers = listOf(marker("Bob", T0))), T0 + 60_000)
-        assertEquals(IngestResult(0, 0, 0, 1), r)
+        assertEquals(IngestResult(0, 0, 0, 1), r.counts())
         val m = all().single()
         assertEquals(MessageStatus.POSSIBLY_DELETED, m.status)
         assertEquals("secret plan", m.text)
@@ -136,7 +136,7 @@ class IngestTest : RoomTestBase() {
         repo.ingest(parsed(msg("keep me", sender = "Bob", ts = T0)), T0)
         repo.ingest(parsed(markers = listOf(marker("Bob", T0))), T0 + 1)
         // A later notification shows the slot with the app's replacement text but no marker was recognised.
-        assertEquals(IngestResult(0, 0, 1, 0), repo.ingest(parsed(msg("You deleted this message", sender = "Bob", ts = T0)), T0 + 2))
+        assertEquals(IngestResult(0, 0, 1, 0), repo.ingest(parsed(msg("You deleted this message", sender = "Bob", ts = T0)), T0 + 2).counts())
         val m = all().single()
         assertEquals("keep me", m.text)
         assertEquals(MessageStatus.POSSIBLY_DELETED, m.status)
@@ -239,7 +239,7 @@ class IngestTest : RoomTestBase() {
             ),
             T0 + 30_000,
         )
-        assertEquals(IngestResult(1, 0, 2, 0), r)
+        assertEquals(IngestResult(1, 0, 2, 0), r.counts())
         val messages = all()
         assertEquals(listOf("Draft is ready", "Thanks!", "Will check"), messages.map { it.text }.sorted())
         assertTrue(messages.all { it.revisionCount == 1 })
@@ -257,7 +257,7 @@ class IngestTest : RoomTestBase() {
     @Test
     fun genuinelyRepeatedText_keepsBothCopies_acrossReposts() = runBlocking {
         repo.ingest(parsed(msg("ok", ts = T0), msg("ok", ts = T0 + 2_000)), T0)
-        assertEquals(IngestResult(0, 0, 2, 0), repo.ingest(parsed(msg("ok", ts = T0), msg("ok", ts = T0 + 2_000)), T0 + 5_000))
+        assertEquals(IngestResult(0, 0, 2, 0), repo.ingest(parsed(msg("ok", ts = T0), msg("ok", ts = T0 + 2_000)), T0 + 5_000).counts())
         assertEquals(2, all().size)
     }
 
@@ -265,7 +265,7 @@ class IngestTest : RoomTestBase() {
     fun editStillDetected_whenOldTextNoLongerShown() = runBlocking {
         repo.ingest(parsed(msg("meet at 5", ts = T0), msg("bring snacks", sender = "Sam", ts = T0)), T0)
         val r = repo.ingest(parsed(msg("meet at 6", ts = T0), msg("bring snacks", sender = "Sam", ts = T0)), T0 + 1_000)
-        assertEquals(IngestResult(0, 1, 1, 0), r)
+        assertEquals(IngestResult(0, 1, 1, 0), r.counts())
         assertEquals(2, all().single { it.sender == "Alice" }.revisionCount)
     }
 }

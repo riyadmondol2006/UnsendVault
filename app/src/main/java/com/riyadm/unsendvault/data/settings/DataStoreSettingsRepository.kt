@@ -13,6 +13,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.riyadm.unsendvault.core.model.StartTab
 import com.riyadm.unsendvault.core.model.ThemeMode
 import com.riyadm.unsendvault.core.model.VaultSettings
 import com.riyadm.unsendvault.data.SettingsRepository
@@ -41,7 +42,8 @@ val Context.vaultSettingsDataStore: DataStore<Preferences> by preferencesDataSto
  *   first read completes (normally a few ms after process start). Code that must not act on defaults — e.g. the
  *   listener deciding whether capture is paused right after a cold start — should use `settings.first()` instead.
  *
- * Invariant enforced on read: widgetShowContent is reported false while the app lock is enabled.
+ * Invariant enforced on read: widgetShowContent and notificationShowContent are reported false while the app lock is
+ * enabled.
  */
 class DataStoreSettingsRepository(
     private val dataStore: DataStore<Preferences>,
@@ -78,6 +80,9 @@ class DataStoreSettingsRepository(
         val lastExportAt = longPreferencesKey("last_export_at")
         val backupReminderDays = intPreferencesKey("backup_reminder_days")
         val secureScreen = booleanPreferencesKey("secure_screen")
+        val startTab = stringPreferencesKey("start_tab")
+        val savedMessageNotifications = booleanPreferencesKey("saved_message_notifications")
+        val notificationShowContent = booleanPreferencesKey("notification_show_content")
     }
 
     companion object {
@@ -102,6 +107,9 @@ class DataStoreSettingsRepository(
                 lastExportAt = p[Keys.lastExportAt],
                 backupReminderDays = (p[Keys.backupReminderDays] ?: DEFAULTS.backupReminderDays).coerceAtLeast(0),
                 secureScreen = p[Keys.secureScreen] ?: DEFAULTS.secureScreen,
+                startTab = p[Keys.startTab]?.let { n -> StartTab.entries.firstOrNull { it.name == n } } ?: DEFAULTS.startTab,
+                savedMessageNotifications = p[Keys.savedMessageNotifications] ?: DEFAULTS.savedMessageNotifications,
+                notificationShowContent = (p[Keys.notificationShowContent] ?: DEFAULTS.notificationShowContent) && !appLock,
             )
         }
 
@@ -122,6 +130,9 @@ class DataStoreSettingsRepository(
             if (s.lastExportAt != null) p[Keys.lastExportAt] = s.lastExportAt else p.remove(Keys.lastExportAt)
             p[Keys.backupReminderDays] = s.backupReminderDays.coerceAtLeast(0)
             p[Keys.secureScreen] = s.secureScreen
+            p[Keys.startTab] = s.startTab.name
+            p[Keys.savedMessageNotifications] = s.savedMessageNotifications
+            p[Keys.notificationShowContent] = s.notificationShowContent && !s.appLockEnabled
         }
     }
 }

@@ -1,6 +1,6 @@
 # Privacy policy
 
-Effective 2026-10-29. Applies to UnsendVault for Android, published by riyadmondol2006 at
+Effective 2026-11-01. Applies to UnsendVault for Android, published by riyadmondol2006 at
 https://github.com/riyadmondol2006/UnsendVault.
 
 ## Summary
@@ -50,6 +50,21 @@ choice and outside the app. Without the password the file cannot be read, and th
 
 Widgets show counts and app names unless you turn on message content, and never message content while the app lock is
 on. The "secure screen" option (on by default) hides the app in Recents and blocks screenshots.
+
+## Notifications from UnsendVault (optional)
+
+If you turn on **Notify when messages are saved** (off by default), UnsendVault posts its own silent notification per
+chat when it saves new messages. By default it only names the source app and the number of messages; chat names and
+message text appear only if you also turn on **Show names and text in notifications**, which is unavailable while the
+app lock is on. These notifications are hidden on the lock screen, are not sent anywhere, and are removed when you turn
+the option off, hide content, enable the app lock or delete all data.
+
+## Replying from UnsendVault
+
+When you send a reply from a chat in UnsendVault, the text is handed to the chat app's own notification reply action on
+your phone, the same way a smartwatch or car reply works. UnsendVault does not connect to the chat service; the chat
+app sends the message. It only reads that one app's active notifications at that moment to find the right chat, and
+stores nothing extra (the chat app's updated notification is archived like any other).
 
 ## Other people's messages
 

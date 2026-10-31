@@ -135,6 +135,9 @@ data class MessageQuery(
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
+/** Which Archive tab the app opens on. */
+enum class StartTab { RECENT, CHATS, APPS }
+
 /** All user preferences, persisted with DataStore. Defaults are the privacy-safe choice. */
 data class VaultSettings(
     val onboardingCompleted: Boolean = false,
@@ -170,4 +173,16 @@ data class VaultSettings(
     val backupReminderDays: Int = 0,
     /** Hide app content in Recents and block screenshots (FLAG_SECURE). */
     val secureScreen: Boolean = true,
+    /** Archive tab shown when the app starts. */
+    val startTab: StartTab = StartTab.RECENT,
+    /**
+     * Post UnsendVault's own silent notification when new messages are saved (one per chat, tap opens the chat). Off by
+     * default; needs POST_NOTIFICATIONS on Android 13+.
+     */
+    val savedMessageNotifications: Boolean = false,
+    /**
+     * Show chat names and message text in those notifications. Off by default (they then only name the app and count);
+     * always forced off while the app lock is enabled.
+     */
+    val notificationShowContent: Boolean = false,
 )

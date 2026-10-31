@@ -20,6 +20,7 @@ set -euo pipefail
 expected_package=com.riyadm.unsendvault
 allowed_permissions=(
   android.permission.INTERNET # update check only (opt-in)
+  android.permission.POST_NOTIFICATIONS # opt-in saved-message notifications
   android.permission.USE_BIOMETRIC
   android.permission.USE_FINGERPRINT
   android.permission.WAKE_LOCK

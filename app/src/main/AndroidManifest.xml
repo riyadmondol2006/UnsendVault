@@ -7,6 +7,8 @@
          use are stripped here and the build fails (verifyPermissions*) if anything outside the allowlist appears in the
          merged manifest. -->
     <uses-permission android:name="android.permission.INTERNET" />
+    <!-- Opt-in "messages saved" notifications only; off by default and requested at runtime on Android 13+. -->
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
     <uses-permission android:name="android.permission.ACCESS_NETWORK_STATE" tools:node="remove" />
     <uses-permission android:name="android.permission.FOREGROUND_SERVICE" tools:node="remove" />
 

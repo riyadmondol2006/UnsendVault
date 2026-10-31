@@ -222,6 +222,22 @@ class VaultNotificationListener : NotificationListenerService() {
             }
         }
 
+        /**
+         * Active notifications of [packageName] from the bound listener, or null when no listener is bound (access
+         * revoked, capture paused, not yet connected). Called only on demand (reply), never on the capture path; safe
+         * off the main thread (binder call).
+         */
+        fun activeNotificationsOf(packageName: String): List<StatusBarNotification>? {
+            val listener = bound ?: return null
+            return try {
+                listener.activeNotifications?.filter { it != null && it.packageName == packageName }.orEmpty()
+            } catch (e: SecurityException) {
+                null
+            } catch (e: RuntimeException) {
+                null
+            }
+        }
+
         /** One pending rebind at most per process; a newer request replaces it. */
         private fun scheduleRebind(context: Context, delayMillis: Long) {
             val app = context.applicationContext

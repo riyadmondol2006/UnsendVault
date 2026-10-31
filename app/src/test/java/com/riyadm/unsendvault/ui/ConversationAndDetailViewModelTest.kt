@@ -4,6 +4,9 @@ import app.cash.turbine.test
 import com.riyadm.unsendvault.core.model.MessageQuery
 import com.riyadm.unsendvault.data.fake.InMemorySettingsRepository
 import com.riyadm.unsendvault.data.fake.InMemoryVaultRepository
+import com.riyadm.unsendvault.reply.ReplyAvailability
+import com.riyadm.unsendvault.reply.ReplyGateway
+import com.riyadm.unsendvault.reply.ReplyResult
 import com.riyadm.unsendvault.ui.conversation.ConversationEvent
 import com.riyadm.unsendvault.ui.conversation.ConversationViewModel
 import com.riyadm.unsendvault.ui.conversation.TimelineItem
@@ -155,5 +158,37 @@ class ConversationAndDetailViewModelTest {
         assertEquals(Vendor.OPPO, vendorOf("realme"))
         assertEquals(Vendor.VIVO, vendorOf("vivo"))
         assertEquals(Vendor.OTHER, vendorOf("Google", "google"))
+    }
+
+    private class FakeReplyGateway(var availability: ReplyAvailability, var result: ReplyResult = ReplyResult.SENT) : ReplyGateway {
+        val sent = mutableListOf<Triple<String, String, String>>()
+        override suspend fun availability(packageName: String, conversationKey: String) = availability
+        override suspend fun send(packageName: String, conversationKey: String, text: String): ReplyResult {
+            sent += Triple(packageName, conversationKey, text)
+            return result
+        }
+    }
+
+    @Test
+    fun replyAvailability_andSend() = runTest {
+        val gateway = FakeReplyGateway(ReplyAvailability.AVAILABLE)
+        val vm = ConversationViewModel(Fixtures.alex.id, vault, ZoneOffset.UTC, replyGateway = gateway)
+        vm.state.testState {
+            awaitMatching { it.reply == ReplyAvailability.AVAILABLE }
+            vm.events.test {
+                vm.sendReply("on my way")
+                assertEquals(ConversationEvent.Reply(ReplyResult.SENT), awaitItem())
+            }
+            assertEquals(listOf(Triple(Fixtures.alex.packageName, Fixtures.alex.conversationKey, "on my way")), gateway.sent)
+            gateway.availability = ReplyAvailability.NO_NOTIFICATION
+            vm.refreshReply()
+            awaitMatching { it.reply == ReplyAvailability.NO_NOTIFICATION }
+        }
+    }
+
+    @Test
+    fun noGateway_noReplyBar() = runTest {
+        val vm = ConversationViewModel(Fixtures.alex.id, vault, ZoneOffset.UTC)
+        vm.state.testState { assertNull(awaitMatching { !it.loading }.reply) }
     }
 }

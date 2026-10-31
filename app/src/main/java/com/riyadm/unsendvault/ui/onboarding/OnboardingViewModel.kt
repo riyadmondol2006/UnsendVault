@@ -49,7 +49,7 @@ class OnboardingViewModel(
     /** The UI verifies the device credential before enabling. */
     fun setAppLockEnabled(enabled: Boolean) {
         viewModelScope.launch {
-            settings.update { if (enabled) it.copy(appLockEnabled = true, widgetShowContent = false) else it.copy(appLockEnabled = false) }
+            settings.update { if (enabled) it.copy(appLockEnabled = true, widgetShowContent = false, notificationShowContent = false) else it.copy(appLockEnabled = false) }
         }
     }
 

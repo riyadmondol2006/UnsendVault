@@ -108,7 +108,13 @@ data class IngestResult(
     val updated: Int,
     val unchanged: Int,
     val markedPossiblyDeleted: Int,
+    /** Messages stored as new rows by this ingest, with their conversation id. In memory only (saved-message notifications). */
+    val newMessages: List<SavedRef> = emptyList(),
+    /** Conversations in which a message was newly marked possibly deleted. */
+    val possiblyDeletedIn: Set<Long> = emptySet(),
 ) {
+    data class SavedRef(val conversationId: Long, val message: CapturedMessage)
+
     val changed: Boolean get() = inserted > 0 || updated > 0 || markedPossiblyDeleted > 0
 
     companion object {
