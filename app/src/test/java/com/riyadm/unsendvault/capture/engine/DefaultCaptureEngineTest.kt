@@ -11,6 +11,7 @@ import com.riyadm.unsendvault.capture.adapter.KnownApps
 import com.riyadm.unsendvault.capture.filter.SensitiveContentFilter
 import com.riyadm.unsendvault.core.model.ContentKind
 import com.riyadm.unsendvault.core.model.RemovalReason
+import com.riyadm.unsendvault.core.model.AppsToSave
 import com.riyadm.unsendvault.core.model.VaultSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.test.StandardTestDispatcher
@@ -91,6 +92,17 @@ class DefaultCaptureEngineTest {
         assertNull(e.process(waMessage, VaultSettings(excludedPackages = setOf(KnownApps.WHATSAPP))))
         assertNull(e.process(waMessage.copy(packageName = own), VaultSettings()))
         assertNull(e.process(waMessage.copy(isOngoing = true), VaultSettings()))
+    }
+
+    @Test
+    fun onlySelectedApps_dropsEveryOtherApp() = runTest {
+        val e = engine()
+        val selectedMode = VaultSettings(appsToSave = AppsToSave.SELECTED_APPS)
+        assertNull(e.process(waMessage, selectedMode))
+        assertNotNull(e.process(waMessage, selectedMode.copy(selectedPackages = setOf(KnownApps.WHATSAPP))))
+        // An exclusion still wins, and switching back to "all chat apps" ignores the selection.
+        assertNull(e.process(waMessage, selectedMode.copy(selectedPackages = setOf(KnownApps.WHATSAPP), excludedPackages = setOf(KnownApps.WHATSAPP))))
+        assertNotNull(e.process(waMessage, VaultSettings(selectedPackages = emptySet())))
     }
 
     @Test

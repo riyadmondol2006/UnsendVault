@@ -1,20 +1,25 @@
 package com.riyadm.unsendvault.ui
 
 import app.cash.turbine.test
+import com.riyadm.unsendvault.apps.ProfileKind
+import com.riyadm.unsendvault.core.model.AppsToSave
+import com.riyadm.unsendvault.core.model.MessageQuery
 import com.riyadm.unsendvault.core.model.ThemeMode
 import com.riyadm.unsendvault.core.model.VaultSettings
 import com.riyadm.unsendvault.data.fake.InMemorySettingsRepository
 import com.riyadm.unsendvault.data.fake.InMemoryVaultRepository
-import com.riyadm.unsendvault.core.model.MessageQuery
-import com.riyadm.unsendvault.apps.ProfileKind
+import com.riyadm.unsendvault.ui.settings.AppPickerMode
+import com.riyadm.unsendvault.ui.settings.ExclusionCandidate
 import com.riyadm.unsendvault.ui.settings.InstalledApp
-import com.riyadm.unsendvault.ui.settings.SettingsUiState
+import com.riyadm.unsendvault.ui.settings.InstalledAppsSource
 import com.riyadm.unsendvault.ui.settings.SettingsEvent
+import com.riyadm.unsendvault.ui.settings.SettingsUiState
 import com.riyadm.unsendvault.ui.settings.SettingsViewModel
+import com.riyadm.unsendvault.ui.settings.orderAppChoices
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.test.advanceUntilIdle
 import kotlinx.coroutines.test.runTest
 import org.junit.Assert.assertEquals
-import kotlinx.coroutines.test.advanceUntilIdle
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Rule
@@ -210,5 +215,82 @@ class SettingsViewModelTest {
         assertEquals(setOf(ProfileKind.WORK), byPkg.getValue("com.whatsapp").alsoIn)
         assertTrue(byPkg.getValue("com.viber").excluded)
         assertEquals(ProfileKind.WORK, byPkg.getValue("com.viber").profile)
+    }
+
+    @Test
+    fun selectedMode_firstSwitchPreTicksArchiveAndKnownChatApps_minusExclusions() = runTest {
+        settings.update { it.copy(excludedPackages = setOf(Fixtures.TELEGRAM)) }
+        val vm = vm()
+        vm.setAppsToSave(AppsToSave.SELECTED_APPS)
+        advanceUntilIdle()
+        assertEquals(AppsToSave.SELECTED_APPS, settings.current.appsToSave)
+        // WhatsApp: in the archive and a known chat app; Telegram: excluded; Notes: not a chat app.
+        assertEquals(setOf(Fixtures.WHATSAPP), settings.current.selectedPackages)
+
+        // Back to all apps and again: the earlier choice is kept, not re-seeded.
+        vm.setSelected(ExclusionCandidate("com.example.notes", "Notes", 0, false), true)
+        vm.setAppsToSave(AppsToSave.ALL_CHAT_APPS)
+        vm.setAppsToSave(AppsToSave.SELECTED_APPS)
+        advanceUntilIdle()
+        assertEquals(setOf(Fixtures.WHATSAPP, "com.example.notes"), settings.current.selectedPackages)
+    }
+
+    @Test
+    fun ticking_liftsExclusionAndNewMark_untickingOffersDelete() = runTest {
+        settings.update {
+            it.copy(appsToSave = AppsToSave.SELECTED_APPS, excludedPackages = setOf("com.sms"), newApps = listOf("com.sms", "com.other"))
+        }
+        val vm = vm()
+        vm.state.testState {
+            val state = awaitMatching { it.settings?.newApps?.size == 2 }
+            val sms = state.exclusionCandidates.single { it.packageName == "com.sms" }
+            assertTrue(sms.isNew)
+            vm.setSelected(sms, true)
+            val after = awaitMatching { s -> s.exclusionCandidates.single { it.packageName == "com.sms" }.selected }
+            assertFalse(after.exclusionCandidates.single { it.packageName == "com.sms" }.isNew)
+            cancelAndIgnoreRemainingEvents()
+        }
+        assertEquals(listOf("com.other"), settings.current.newApps)
+        assertFalse("com.sms" in settings.current.excludedPackages)
+
+        vm.events.test {
+            vm.setSelected(ExclusionCandidate(Fixtures.WHATSAPP, "WhatsApp", 3, false, selected = true), false)
+            assertEquals(SettingsEvent.OfferDeleteAppData(Fixtures.WHATSAPP, "WhatsApp", 3), awaitItem())
+        }
+    }
+
+    @Test
+    fun appChoiceOrder_newFirst_thenTickedAtOpen_thenRest_withoutJumping() {
+        fun c(pkg: String, label: String, selected: Boolean = false, excluded: Boolean = false, isNew: Boolean = false) =
+            ExclusionCandidate(pkg, label, 0, excluded, selected = selected, isNew = isNew)
+        val list = listOf(c("a", "Alpha"), c("b", "Bravo", selected = true), c("z", "Zulu SMS", isNew = true), c("c", "Charlie", excluded = true), c("n", "Nova", isNew = true))
+        val newAtOpen = setOf("z", "n")
+        assertEquals(listOf("n", "z", "b", "a", "c"), orderAppChoices(list, AppPickerMode.SELECT, setOf("b"), newAtOpen).map { it.packageName })
+        // Ticking rows after opening (a plain one and a new one, which loses its "New" mark) moves nothing.
+        val ticked = list.map {
+            when (it.packageName) {
+                "a" -> it.copy(selected = true)
+                "z" -> it.copy(selected = true, isNew = false)
+                else -> it
+            }
+        }
+        assertEquals(listOf("n", "z", "b", "a", "c"), orderAppChoices(ticked, AppPickerMode.SELECT, setOf("b"), newAtOpen).map { it.packageName })
+        assertEquals(listOf("c", "a", "b", "z", "n"), orderAppChoices(list, AppPickerMode.EXCLUDE, pinned = setOf("c")).map { it.packageName })
+    }
+
+    @Test
+    fun appsWithoutLauncherEntry_getTheirRealName() = runTest {
+        settings.update { it.copy(appsToSave = AppsToSave.SELECTED_APPS, newApps = listOf("com.android.shell")) }
+        val source = object : InstalledAppsSource {
+            override suspend fun launcherApps() = launcher
+            override suspend fun labelFor(packageName: String) = if (packageName == "com.android.shell") "Shell" else null
+        }
+        val vm = SettingsViewModel(settings, vault, scheduler, source)
+        vm.state.testState {
+            vm.loadLauncherApps()
+            val state = awaitMatching { s -> s.exclusionCandidates.any { it.packageName == "com.android.shell" && it.label == "Shell" } }
+            assertTrue(state.exclusionCandidates.single { it.packageName == "com.android.shell" }.isNew)
+            cancelAndIgnoreRemainingEvents()
+        }
     }
 }

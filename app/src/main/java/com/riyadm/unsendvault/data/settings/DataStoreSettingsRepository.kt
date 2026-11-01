@@ -13,6 +13,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.riyadm.unsendvault.core.model.AppsToSave
 import com.riyadm.unsendvault.core.model.StartTab
 import com.riyadm.unsendvault.core.model.ThemeMode
 import com.riyadm.unsendvault.core.model.VaultSettings
@@ -83,6 +84,11 @@ class DataStoreSettingsRepository(
         val startTab = stringPreferencesKey("start_tab")
         val savedMessageNotifications = booleanPreferencesKey("saved_message_notifications")
         val notificationShowContent = booleanPreferencesKey("notification_show_content")
+        val appsToSave = stringPreferencesKey("apps_to_save")
+        val selectedPackages = stringSetPreferencesKey("selected_packages")
+
+        /** Comma-separated (package names never contain commas) to keep the order. */
+        val newApps = stringPreferencesKey("new_apps")
     }
 
     companion object {
@@ -110,6 +116,10 @@ class DataStoreSettingsRepository(
                 startTab = p[Keys.startTab]?.let { n -> StartTab.entries.firstOrNull { it.name == n } } ?: DEFAULTS.startTab,
                 savedMessageNotifications = p[Keys.savedMessageNotifications] ?: DEFAULTS.savedMessageNotifications,
                 notificationShowContent = (p[Keys.notificationShowContent] ?: DEFAULTS.notificationShowContent) && !appLock,
+                appsToSave = p[Keys.appsToSave]?.let { n -> AppsToSave.entries.firstOrNull { it.name == n } } ?: DEFAULTS.appsToSave,
+                selectedPackages = p[Keys.selectedPackages] ?: DEFAULTS.selectedPackages,
+                newApps = p[Keys.newApps]?.split(',')?.filter { it.isNotBlank() }?.distinct()?.takeLast(VaultSettings.MAX_NEW_APPS)
+                    ?: DEFAULTS.newApps,
             )
         }
 
@@ -133,6 +143,9 @@ class DataStoreSettingsRepository(
             p[Keys.startTab] = s.startTab.name
             p[Keys.savedMessageNotifications] = s.savedMessageNotifications
             p[Keys.notificationShowContent] = s.notificationShowContent && !s.appLockEnabled
+            p[Keys.appsToSave] = s.appsToSave.name
+            p[Keys.selectedPackages] = s.selectedPackages
+            p[Keys.newApps] = s.newApps.filter { it.isNotBlank() && ',' !in it }.distinct().takeLast(VaultSettings.MAX_NEW_APPS).joinToString(",")
         }
     }
 }

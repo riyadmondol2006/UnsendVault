@@ -28,7 +28,6 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.testTag
-import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.LiveRegionMode
 import androidx.compose.ui.semantics.heading
@@ -37,7 +36,6 @@ import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.stateDescription
 import androidx.compose.ui.unit.dp
 import com.riyadm.unsendvault.R
-import com.riyadm.unsendvault.core.model.VaultStats
 
 object HomeTestTags {
     const val STATUS_CARD = "home_status_card"
@@ -58,7 +56,6 @@ private data class StatusVisual(val icon: ImageVector, val title: Int, val body:
 @Composable
 fun CaptureStatusCard(
     status: CaptureStatus,
-    stats: VaultStats?,
     onGrantAccess: () -> Unit,
     onResume: () -> Unit,
     onReconnect: () -> Unit,
@@ -91,16 +88,6 @@ fun CaptureStatusCard(
                     Text(stateText, style = MaterialTheme.typography.titleMedium, modifier = Modifier.semantics { heading() })
                 }
                 Text(stringResource(visual.body), style = MaterialTheme.typography.bodyMedium)
-                if (stats != null && stats.totalMessages > 0) {
-                    Text(
-                        listOf(
-                            pluralStringResource(R.plurals.stats_messages, stats.totalMessages, stats.totalMessages),
-                            pluralStringResource(R.plurals.stats_conversations, stats.totalConversations, stats.totalConversations),
-                            pluralStringResource(R.plurals.stats_apps, stats.apps, stats.apps),
-                        ).joinToString(" · "),
-                        style = MaterialTheme.typography.labelLarge,
-                    )
-                }
             }
             when (status) {
                 CaptureStatus.NO_ACCESS -> Button(onClick = onGrantAccess, modifier = Modifier.testTag(HomeTestTags.GRANT)) {

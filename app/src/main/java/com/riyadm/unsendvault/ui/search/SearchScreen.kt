@@ -134,7 +134,7 @@ fun SearchScreen(
                 keyboardActions = KeyboardActions(onSearch = { focus.clearFocus() }),
                 shape = MaterialTheme.shapes.extraLarge,
             )
-            if (state.apps.size > 1) {
+            if (state.apps.isNotEmpty()) {
                 LazyRow(
                     contentPadding = PaddingValues(horizontal = 16.dp),
                     horizontalArrangement = Arrangement.spacedBy(8.dp),

@@ -65,6 +65,7 @@ import com.riyadm.unsendvault.ui.search.SearchRoute
 import com.riyadm.unsendvault.ui.search.SearchViewModel
 import com.riyadm.unsendvault.ui.settings.AboutRoute
 import com.riyadm.unsendvault.ui.settings.BackupViewModel
+import com.riyadm.unsendvault.ui.settings.AppPickerMode
 import com.riyadm.unsendvault.ui.settings.ExclusionsRoute
 import com.riyadm.unsendvault.ui.settings.PackageManagerAppsSource
 import com.riyadm.unsendvault.ui.settings.ReliabilityRoute
@@ -89,6 +90,7 @@ import kotlinx.serialization.Serializable
 @Serializable data class ConversationDest(val id: Long)
 @Serializable data class MessageDest(val id: Long)
 @Serializable data object ExclusionsDest
+@Serializable data object SelectedAppsDest
 @Serializable data object ReliabilityDest
 @Serializable data object AboutDest
 
@@ -257,6 +259,7 @@ private fun AppNavHost(navController: NavHostController, isWide: Boolean, onLock
                 backupViewModel = containerViewModel { BackupViewModel(it.backupManager, it.settingsRepository) },
                 accessSettingsIntent = { container.listenerStatus.accessSettingsIntent() },
                 onOpenExclusions = { navController.navigate(ExclusionsDest) },
+                onOpenSelectedApps = { navController.navigate(SelectedAppsDest) },
                 onOpenReliability = { navController.navigate(ReliabilityDest) },
                 onOpenAbout = { navController.navigate(AboutDest) },
                 showDeveloperOptions = BuildConfig.DEBUG,
@@ -281,7 +284,11 @@ private fun AppNavHost(navController: NavHostController, isWide: Boolean, onLock
         }
         composable<ExclusionsDest> {
             val back = rememberBack(navController)
-            ExclusionsRoute(containerViewModel { settingsViewModelFactory(it) }) { back() }
+            ExclusionsRoute(containerViewModel { settingsViewModelFactory(it) }, onBack = { back() })
+        }
+        composable<SelectedAppsDest> {
+            val back = rememberBack(navController)
+            ExclusionsRoute(containerViewModel { settingsViewModelFactory(it) }, onBack = { back() }, mode = AppPickerMode.SELECT)
         }
         composable<ReliabilityDest> {
             val back = rememberBack(navController)

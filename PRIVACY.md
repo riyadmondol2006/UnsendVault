@@ -21,7 +21,9 @@ It does not read your contacts, SMS database, files, photos, location, microphon
 anything inside other apps that was not shown in a notification.
 
 To show app names and icons and to list apps you can exclude, it looks up launchable apps in your profiles (including a
-work profile) through Android's launcher API. This list stays on the device and is never stored or sent.
+work profile) through Android's launcher API. This list stays on the device and is never stored or sent. With **Only selected apps**, the package
+names (never content) of up to 20 unselected apps that sent chat-style notifications are kept in settings so they can be
+offered as "New".
 
 ## What the app stores, and where
 

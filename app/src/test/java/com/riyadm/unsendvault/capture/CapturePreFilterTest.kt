@@ -12,6 +12,7 @@ import com.riyadm.unsendvault.capture.adapter.KnownApps
 import com.riyadm.unsendvault.capture.engine.CaptureSink
 import com.riyadm.unsendvault.capture.engine.DefaultCaptureEngine
 import com.riyadm.unsendvault.capture.filter.SensitiveContentFilter
+import com.riyadm.unsendvault.core.model.AppsToSave
 import com.riyadm.unsendvault.core.model.VaultSettings
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -138,5 +139,18 @@ class CapturePreFilterTest {
             }
         }
         assertTrue("matrix should exercise rejects", rejected > 50)
+    }
+
+    @Test
+    fun onlySelectedApps_rejectsUnselectedAsSettingsReject() {
+        val selected = VaultSettings(appsToSave = AppsToSave.SELECTED_APPS, selectedPackages = setOf("com.example.chat"))
+        assertEquals(Result.ACCEPT, decide(pkg = "com.example.chat", template = MESSAGING_TEMPLATE, settings = selected))
+        val other = decide(pkg = "com.example.sms", template = MESSAGING_TEMPLATE, settings = selected)
+        assertEquals(Result.NOT_SELECTED, other)
+        assertTrue(other.isSettingsReject)
+        // Exclusion is reported first; unknown settings (cold start) leave the decision to the engine.
+        assertEquals(Result.EXCLUDED, decide(pkg = "com.example.chat", template = MESSAGING_TEMPLATE, settings = selected.copy(excludedPackages = setOf("com.example.chat"))))
+        assertEquals(Result.ACCEPT, decide(pkg = "com.example.sms", template = MESSAGING_TEMPLATE, settings = null))
+        assertTrue(VaultSettings().savesApp("anything"))
     }
 }

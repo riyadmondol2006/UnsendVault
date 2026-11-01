@@ -4,6 +4,27 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 Releases are built and published automatically from `main` and numbered `MAJOR.MINOR.N`, where `N` is the commit count
 (see [docs/RELEASING.md](docs/RELEASING.md)); each GitHub release also lists the commits it contains.
 
+## Unreleased
+
+Proposed by @Zokii0 in [issue #3](https://github.com/riyadmondol2006/UnsendVault/issues/3).
+
+### Added
+- **Apps to save** (Settings > Capture): "All chat apps" (default, unchanged: any chat-style app except excluded ones)
+  or "Only selected apps". In selected mode only ticked apps are read at all; Excluded apps is hidden because it isn't
+  needed. The first switch pre-ticks the apps already in the archive and the known chat apps installed, so capture
+  doesn't silently stop; later switches keep the earlier choice. Apps that send chat-style notifications while not
+  ticked are listed as **New** at the top of Selected apps (package names only, at most 20) and can be added in one
+  tap. Unticking an app with saved messages offers to delete them.
+
+### Changed
+- The capture status card on the archive is shown only when capture needs attention (no access, paused,
+  disconnected), and no longer repeats the message/conversation/app counts.
+- The app filter chips stay visible after picking an app from the Apps tab, even when the archive has one app; Search
+  shows its app chips from one app on.
+- App lists (Excluded / Selected apps): shown once the installed apps are loaded, so the list no longer opens
+  scrolled down; ticked apps (and new ones) come first and stay in place while you flip switches; a recycled row no
+  longer animates its switch from another app's state; apps without a launcher entry show their name.
+
 ## 1.0.31 (2026-11-01)
 
 ### Fixed

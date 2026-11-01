@@ -137,7 +137,7 @@ class DefaultCaptureEngine(
 
     private suspend fun handleRemoved(event: RemovalEvent) {
         val settings = settingsProvider()
-        if (!settings.captureEnabled || event.packageName == ownPackage || event.packageName in settings.excludedPackages) return
+        if (!settings.captureEnabled || event.packageName == ownPackage || !settings.savesApp(event.packageName)) return
         synchronized(lock) { lastIngested.remove(event.notificationKey) }
         sink.recordRemoval(event)
     }
@@ -149,7 +149,7 @@ class DefaultCaptureEngine(
     fun process(snapshot: NotificationSnapshot, settings: VaultSettings): ParsedNotification? {
         if (!settings.captureEnabled) return null
         val pkg = snapshot.packageName
-        if (pkg == ownPackage || pkg in settings.excludedPackages) return null
+        if (pkg == ownPackage || !settings.savesApp(pkg)) return null
         if (snapshot.isOngoing) return null
         val adapter = registry.adapterFor(pkg)
         if (settings.messagesOnly && !safeIsMessage(adapter, snapshot)) return null

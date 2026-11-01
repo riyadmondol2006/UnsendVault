@@ -3,6 +3,7 @@ package com.riyadm.unsendvault.data
 import androidx.datastore.core.handlers.ReplaceFileCorruptionHandler
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
 import androidx.datastore.preferences.core.emptyPreferences
+import com.riyadm.unsendvault.core.model.AppsToSave
 import com.riyadm.unsendvault.core.model.StartTab
 import com.riyadm.unsendvault.core.model.ThemeMode
 import com.riyadm.unsendvault.core.model.VaultSettings
@@ -72,6 +73,9 @@ class SettingsRepositoryTest {
             startTab = StartTab.CHATS,
             savedMessageNotifications = true,
             notificationShowContent = true,
+            appsToSave = AppsToSave.SELECTED_APPS,
+            selectedPackages = setOf("com.whatsapp", "com.viber.voip"),
+            newApps = listOf("com.b.sms", "com.a.chat"),
         )
         val s1 = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val r1 = repo(file, s1)
@@ -128,5 +132,17 @@ class SettingsRepositoryTest {
         assertEquals(0, s.retentionDays)
         assertEquals(0, s.lockTimeoutSeconds)
         assertEquals(0, s.backupReminderDays)
+    }
+
+    @Test
+    fun newApps_keepOrder_dedupe_andCap() = runBlocking {
+        val r = repo(File(tmp.root, "apps.preferences_pb"))
+        val many = (1..25).map { "com.app$it" }
+        r.update { it.copy(newApps = listOf("com.app1") + many) }
+        val stored = r.settings.first().newApps
+        assertEquals(VaultSettings.MAX_NEW_APPS, stored.size)
+        assertEquals("com.app6", stored.first())
+        assertEquals("com.app25", stored.last())
+        assertEquals(AppsToSave.ALL_CHAT_APPS, repo(File(tmp.root, "fresh.preferences_pb")).settings.first().appsToSave)
     }
 }

@@ -67,8 +67,8 @@ see [Reliability](#reliability).
 - Choose which tab the archive opens on: Recent, Chats or Apps
 - Message detail with update history, capture times, and deletion evidence when there is any
 - Favorites (kept by auto-delete)
-- Pause and resume capture, exclude apps (including apps in a work profile or other profile), "messages only" mode
-  (default on)
+- Pause and resume capture; save all chat apps except excluded ones, or only the apps you select (new chat apps are
+  offered with one tap); work-profile and other-profile apps included; "messages only" mode (default on)
 - One-time-code and sensitive-number filter before anything is stored (default on)
 - Auto-delete after N days (default 30; 0 keeps forever), run by a daily background job
 - App lock with fingerprint, face or screen lock; relock timeout; hide content in Recents and block screenshots

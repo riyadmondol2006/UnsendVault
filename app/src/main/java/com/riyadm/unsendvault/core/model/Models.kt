@@ -135,6 +135,15 @@ data class MessageQuery(
 
 enum class ThemeMode { SYSTEM, LIGHT, DARK }
 
+/** Which apps' notifications are saved. */
+enum class AppsToSave {
+    /** Any app whose notifications look like chat messages, minus [VaultSettings.excludedPackages] (the default). */
+    ALL_CHAT_APPS,
+
+    /** Only [VaultSettings.selectedPackages]; every other app is dropped before anything is read. */
+    SELECTED_APPS,
+}
+
 /** Which Archive tab the app opens on. */
 enum class StartTab { RECENT, CHATS, APPS }
 
@@ -185,4 +194,20 @@ data class VaultSettings(
      * always forced off while the app lock is enabled.
      */
     val notificationShowContent: Boolean = false,
-)
+    val appsToSave: AppsToSave = AppsToSave.ALL_CHAT_APPS,
+    /** Apps saved in [AppsToSave.SELECTED_APPS] mode. Kept when switching back, so the choice isn't lost. */
+    val selectedPackages: Set<String> = emptySet(),
+    /**
+     * Package names (nothing else) of apps that sent chat-style notifications while not selected, oldest first, at
+     * most [MAX_NEW_APPS]. Offered as "New" in the Selected apps list.
+     */
+    val newApps: List<String> = emptyList(),
+) {
+    /** Exclusions always apply; in selected mode the app must also be selected. */
+    fun savesApp(packageName: String): Boolean =
+        packageName !in excludedPackages && (appsToSave == AppsToSave.ALL_CHAT_APPS || packageName in selectedPackages)
+
+    companion object {
+        const val MAX_NEW_APPS = 20
+    }
+}

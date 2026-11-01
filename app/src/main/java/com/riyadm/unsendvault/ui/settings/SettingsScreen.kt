@@ -27,6 +27,7 @@ import androidx.compose.material.icons.outlined.Apps
 import androidx.compose.material.icons.outlined.Backup
 import androidx.compose.material.icons.outlined.BatteryAlert
 import androidx.compose.material.icons.outlined.Block
+import androidx.compose.material.icons.outlined.Checklist
 import androidx.compose.material.icons.outlined.BugReport
 import androidx.compose.material.icons.outlined.DarkMode
 import androidx.compose.material.icons.outlined.DeleteOutline
@@ -74,6 +75,7 @@ import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.riyadm.unsendvault.R
+import com.riyadm.unsendvault.core.model.AppsToSave
 import com.riyadm.unsendvault.core.model.StartTab
 import com.riyadm.unsendvault.core.model.ThemeMode
 import com.riyadm.unsendvault.core.model.VaultSettings
@@ -104,9 +106,11 @@ object SettingsTestTags {
     const val DELETE_ALL = "settings_delete_all"
     const val EXPORT = "settings_export"
     const val START_TAB = "settings_start_tab"
+    const val APPS_TO_SAVE = "settings_apps_to_save"
+    const val SELECTED_APPS = "settings_selected_apps"
 }
 
-private enum class SettingsDialog { NONE, RETENTION, TIMEOUT, THEME, START_TAB, REMINDER, DELETE_ALL }
+private enum class SettingsDialog { NONE, APPS_TO_SAVE, RETENTION, TIMEOUT, THEME, START_TAB, REMINDER, DELETE_ALL }
 
 @Composable
 fun SettingsRoute(
@@ -114,6 +118,7 @@ fun SettingsRoute(
     backupViewModel: BackupViewModel,
     accessSettingsIntent: () -> Intent,
     onOpenExclusions: () -> Unit,
+    onOpenSelectedApps: () -> Unit = {},
     onOpenReliability: () -> Unit,
     onOpenAbout: () -> Unit,
     showDeveloperOptions: Boolean,
@@ -172,6 +177,7 @@ fun SettingsRoute(
             context.startFirstAvailable(accessSettingsIntent(), Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS), context.appDetailsIntent())
         },
         onOpenExclusions = onOpenExclusions,
+        onOpenSelectedApps = onOpenSelectedApps,
         onOpenReliability = onOpenReliability,
         onOpenAbout = onOpenAbout,
         showDeveloperOptions = showDeveloperOptions && viewModel.canInsertDemoData,
@@ -209,6 +215,7 @@ fun SettingsScreen(
     onOpenAbout: () -> Unit,
     showDeveloperOptions: Boolean,
     snackbarHostState: SnackbarHostState? = null,
+    onOpenSelectedApps: () -> Unit = {},
 ) {
     var dialog by rememberSaveable { mutableStateOf(SettingsDialog.NONE) }
     val formatter = rememberTimeFormatter()
@@ -242,15 +249,37 @@ fun SettingsScreen(
                     icon = Icons.Outlined.Apps,
                 )
                 ValueRow(
-                    title = stringResource(R.string.settings_excluded_apps),
-                    value = if (s.excludedPackages.isEmpty()) {
-                        stringResource(R.string.settings_excluded_none)
-                    } else {
-                        pluralStringResource(R.plurals.settings_excluded_count, s.excludedPackages.size, s.excludedPackages.size)
-                    },
-                    icon = Icons.Outlined.Block,
-                    onClick = onOpenExclusions,
+                    title = stringResource(R.string.settings_apps_to_save),
+                    value = stringResource(if (s.appsToSave == AppsToSave.SELECTED_APPS) R.string.apps_to_save_selected else R.string.apps_to_save_all),
+                    icon = Icons.Outlined.Checklist,
+                    onClick = { dialog = SettingsDialog.APPS_TO_SAVE },
+                    modifier = Modifier.testTag(SettingsTestTags.APPS_TO_SAVE),
                 )
+                if (s.appsToSave == AppsToSave.SELECTED_APPS) {
+                    val newCount = s.newApps.count { it !in s.selectedPackages }
+                    ValueRow(
+                        title = stringResource(R.string.settings_selected_apps),
+                        value = if (newCount > 0) {
+                            pluralStringResource(R.plurals.selected_apps_count_with_new, s.selectedPackages.size, s.selectedPackages.size, newCount)
+                        } else {
+                            pluralStringResource(R.plurals.selected_apps_count, s.selectedPackages.size, s.selectedPackages.size)
+                        },
+                        icon = Icons.Outlined.Apps,
+                        onClick = onOpenSelectedApps,
+                        modifier = Modifier.testTag(SettingsTestTags.SELECTED_APPS),
+                    )
+                } else {
+                    ValueRow(
+                        title = stringResource(R.string.settings_excluded_apps),
+                        value = if (s.excludedPackages.isEmpty()) {
+                            stringResource(R.string.settings_excluded_none)
+                        } else {
+                            pluralStringResource(R.plurals.settings_excluded_count, s.excludedPackages.size, s.excludedPackages.size)
+                        },
+                        icon = Icons.Outlined.Block,
+                        onClick = onOpenExclusions,
+                    )
+                }
                 ValueRow(
                     title = stringResource(R.string.settings_notification_access),
                     value = stringResource(R.string.settings_notification_access_summary),
@@ -487,6 +516,18 @@ private fun SettingsDialogs(dialog: SettingsDialog, s: VaultSettings, viewModel:
                 onDismiss()
             },
             onDismiss = onDismiss,
+        )
+        SettingsDialog.APPS_TO_SAVE -> ChoiceDialog(
+            title = stringResource(R.string.settings_apps_to_save),
+            options = AppsToSave.entries,
+            selected = s.appsToSave,
+            label = { stringResource(if (it == AppsToSave.SELECTED_APPS) R.string.apps_to_save_selected else R.string.apps_to_save_all) },
+            onSelect = {
+                viewModel.setAppsToSave(it)
+                onDismiss()
+            },
+            onDismiss = onDismiss,
+            footer = { Text(stringResource(R.string.apps_to_save_footer), style = MaterialTheme.typography.bodySmall) },
         )
         SettingsDialog.START_TAB -> ChoiceDialog(
             title = stringResource(R.string.settings_start_tab),

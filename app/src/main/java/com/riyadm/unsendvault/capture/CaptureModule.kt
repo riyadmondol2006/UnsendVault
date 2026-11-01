@@ -9,7 +9,13 @@ import com.riyadm.unsendvault.capture.engine.DefaultCaptureEngine
 import com.riyadm.unsendvault.capture.filter.SensitiveContentFilter
 import com.riyadm.unsendvault.capture.parser.CapturePlaceholders
 import com.riyadm.unsendvault.di.AppContainer
+import com.riyadm.unsendvault.core.model.AppsToSave
+import com.riyadm.unsendvault.core.model.VaultSettings
+import com.riyadm.unsendvault.data.SettingsRepository
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import java.util.concurrent.ConcurrentHashMap
 
 /** Capture engine used by [VaultNotificationListener]. Every call must return immediately (they only enqueue work). */
 interface CaptureEngine {
@@ -33,7 +39,36 @@ class CaptureRuntime(
     val settings: CaptureSettingsCache,
     /** Also used off the hot path to find which chat an active notification belongs to (reply). */
     val registry: AdapterRegistry,
+    /** Records an unselected app that sent a chat-style notification ("New" in Selected apps). Returns immediately. */
+    val onNewApp: (String) -> Unit = {},
 )
+
+/**
+ * Remembers apps that sent chat-style notifications while "Only selected apps" is on, so the user can add them in one
+ * tap. Stores package names only (never content), each at most once per process, capped at [VaultSettings.MAX_NEW_APPS].
+ */
+class NewAppRecorder(private val scope: CoroutineScope, private val settings: () -> SettingsRepository) {
+    private val reported = ConcurrentHashMap.newKeySet<String>()
+
+    fun record(packageName: String) {
+        if (!reported.add(packageName)) return
+        scope.launch {
+            try {
+                settings().update { s ->
+                    if (s.appsToSave != AppsToSave.SELECTED_APPS || packageName in s.selectedPackages ||
+                        packageName in s.excludedPackages || packageName in s.newApps
+                    ) {
+                        s
+                    } else {
+                        s.copy(newApps = (s.newApps + packageName).takeLast(VaultSettings.MAX_NEW_APPS))
+                    }
+                }
+            } catch (e: Exception) {
+                reported.remove(packageName) // try again on its next notification
+            }
+        }
+    }
+}
 
 object CaptureModule {
     fun createRuntime(container: AppContainer): CaptureRuntime {
@@ -67,7 +102,8 @@ object CaptureModule {
             sensitiveFilter = SensitiveContentFilter(placeholders),
             ownPackage = context.packageName,
         )
-        return CaptureRuntime(engine, CapturePreFilter(registry, context.packageName), cache, registry)
+        val newApps = NewAppRecorder(container.appScope) { container.settingsRepository }
+        return CaptureRuntime(engine, CapturePreFilter(registry, context.packageName), cache, registry, newApps::record)
     }
 
     fun createPauseController(context: Context): CapturePauseController =

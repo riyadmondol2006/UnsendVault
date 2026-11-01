@@ -68,10 +68,6 @@
         <item quantity="one">%d conversation</item>
         <item quantity="other">%d conversations</item>
     </plurals>
-    <plurals name="stats_apps">
-        <item quantity="one">%d app</item>
-        <item quantity="other">%d apps</item>
-    </plurals>
 
     <!-- App lock -->
     <string name="lock_title">UnsendVault is locked</string>

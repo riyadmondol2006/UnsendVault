@@ -282,3 +282,30 @@ Release [v1.0.31](https://github.com/riyadmondol2006/UnsendVault/releases/tag/v1
 APK (3,141,542 bytes) matches its SHA-256, is signed with the same certificate (`e443c869…75135197`) and declares the same
 permissions as 1.0.29. Installed over 1.0.27 on the Pixel: the existing archive and Notification Access were kept and
 capture stayed active.
+
+## Round 5 (2026-11-01): Apps to save / Selected apps, home and search tweaks
+
+Proposed by @Zokii0 in issue #3. Debug build on the same Pixel 6 / Android 17; synthetic notifications from the shell
+(`cmd notification post -S messaging`). Google Messages was unticked before Notification Access was granted, and access
+was revoked before switching back to "All chat apps".
+
+- Unit tests: 459 run, 458 passed, 1 skipped (as before), 0 failed (8 new: pre-filter and engine in selected mode,
+  settings persistence and the "New" list cap/order, first-switch pre-ticking, ticking/unticking, list order without
+  jumps, names for apps without a launcher entry, the new-app recorder). Instrumented tests on the Pixel: 29 passed
+  (two Home assertions updated: the healthy-capture card is no longer shown). Lint: no new warnings (an unused plural
+  was removed). Release APK 3.1 MB.
+- Found and fixed while testing: a "New" app jumped down the list when ticked (the New group is now fixed when the list
+  opens); apps without a launcher entry (e.g. Shell) showed their package name; adding the Selected-apps callback in
+  the middle of `SettingsScreen`'s parameters broke a positional call in the instrumented tests (moved to the end).
+
+| Test | Result |
+|---|---|
+| Switch to "Only selected apps" (empty archive) | Known chat app on the phone (Google Messages) pre-ticked; row "1 app selected"; Excluded apps row hidden |
+| Untick it before granting access | "0 apps selected"; row stays in place |
+| Chat notification from an unselected app (Shell) | Not saved; row "0 apps selected · 2 new" (Shell and Messages); both listed first as "New", Shell with its name |
+| Tick Shell, post again | Saved; "1 app selected · 1 new"; row did not move |
+| Untick an app with saved messages | "Also delete messages from Shell?" with Keep / Delete |
+| Back to "All chat apps" | Excluded apps row back; dialog footer explains both modes |
+| Archive with capture healthy | No status card; with access revoked the "Capture is off" card shows (no counters) |
+| One app in the archive, pick it in the Apps tab | Chats tab shows "All apps" + the selected app chip |
+| Search with one app | App chip shown |

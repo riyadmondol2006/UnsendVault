@@ -20,6 +20,9 @@ data class InstalledApp(
 /** Lists launchable apps of every profile (personal, work, cloned, …) for the exclusion picker. */
 fun interface InstalledAppsSource {
     suspend fun launcherApps(): List<InstalledApp>
+
+    /** Label of one package that may not be launchable (e.g. a "New" app), from any profile. Null if unknown. */
+    suspend fun labelFor(packageName: String): String? = null
 }
 
 /** [AppDirectory] on the IO dispatcher (launcher-intent `<queries>`, no QUERY_ALL_PACKAGES, no extra permission). */
@@ -27,4 +30,6 @@ class PackageManagerAppsSource(context: Context, private val directory: AppDirec
     override suspend fun launcherApps(): List<InstalledApp> = withContext(Dispatchers.IO) {
         directory.launchableApps().map { InstalledApp(it.packageName, it.label, it.profile, it.alsoIn) }
     }
+
+    override suspend fun labelFor(packageName: String): String? = withContext(Dispatchers.IO) { directory.label(packageName) }
 }

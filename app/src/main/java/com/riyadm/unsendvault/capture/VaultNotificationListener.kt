@@ -7,6 +7,8 @@ import android.os.SystemClock
 import android.service.notification.NotificationListenerService
 import android.service.notification.StatusBarNotification
 import com.riyadm.unsendvault.appContainer
+import com.riyadm.unsendvault.core.model.AppsToSave
+import com.riyadm.unsendvault.core.model.VaultSettings
 import java.io.FileDescriptor
 import java.io.PrintWriter
 
@@ -142,12 +144,24 @@ class VaultNotificationListener : NotificationListenerService() {
         val verdict = SnapshotFactory.preFilter(sbn, rt.preFilter, settings)
         if (!verdict.accept) {
             verdict.counter?.let { CaptureStats.inc(it) }
+            if (verdict == CapturePreFilter.Result.NOT_SELECTED && settings != null) noteNewApp(rt, sbn, settings)
             return null
         }
         if (settings == null) CaptureStats.inc(CaptureStats.Counter.PREFILTER_UNKNOWN_SETTINGS)
         val snapshot = SnapshotFactory.fromStatusBarNotification(sbn, ownPackage.ifEmpty { packageName }) ?: return null
         CaptureStats.inc(CaptureStats.Counter.SNAPSHOTS_BUILT)
         return snapshot
+    }
+
+    /**
+     * "Only selected apps": an unselected app whose notification would otherwise be saved (same header/template checks,
+     * with the default messages-only gate; no text is read) is offered as "New". Already-listed apps cost one set lookup.
+     */
+    private fun noteNewApp(rt: CaptureRuntime, sbn: StatusBarNotification, settings: VaultSettings) {
+        val pkg = sbn.packageName ?: return
+        if (pkg in settings.newApps) return
+        val asIfSelected = settings.copy(appsToSave = AppsToSave.ALL_CHAT_APPS, messagesOnly = true)
+        if (SnapshotFactory.preFilter(sbn, rt.preFilter, asIfSelected).accept) rt.onNewApp(pkg)
     }
 
     /**

@@ -1,0 +1,21 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="settings_apps_to_save">Apps to save</string>
+    <string name="apps_to_save_all">All chat apps</string>
+    <string name="apps_to_save_selected">Only selected apps</string>
+    <string name="apps_to_save_footer">All chat apps: any app whose notifications look like chat messages is saved, except excluded apps. Only selected apps: nothing else is read at all; apps that send chat-style notifications show up as \"New\" so you can add them.</string>
+    <string name="settings_selected_apps">Selected apps</string>
+    <plurals name="selected_apps_count">
+        <item quantity="one">%d app selected</item>
+        <item quantity="other">%d apps selected</item>
+    </plurals>
+    <plurals name="selected_apps_count_with_new">
+        <item quantity="one">%1$d app selected · %2$d new</item>
+        <item quantity="other">%1$d apps selected · %2$d new</item>
+    </plurals>
+    <string name="selected_apps_explainer">Only ticked apps are saved; notifications from every other app are dropped before they are read.</string>
+    <string name="selected_apps_profiles_note">Ticking an app also saves its copies in your work profile and other profiles.</string>
+    <string name="selected_apps_new">New</string>
+    <string name="selected_apps_state_saved">Saved</string>
+    <string name="selected_apps_state_not_saved">Not saved</string>
+</resources>

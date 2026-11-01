@@ -9,6 +9,5 @@
     <string name="profile_also_clone">Also cloned</string>
     <string name="profile_also_private">Also in private space</string>
     <string name="profile_also_other">Also in another profile</string>
-    <string name="profile_separator">%1$s · %2$s</string>
     <string name="exclusions_profiles_note">Excluding an app also excludes its copies in your work profile and other profiles.</string>
 </resources>
