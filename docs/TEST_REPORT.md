@@ -309,3 +309,8 @@ was revoked before switching back to "All chat apps".
 | Archive with capture healthy | No status card; with access revoked the "Capture is off" card shows (no counters) |
 | One app in the archive, pick it in the Apps tab | Chats tab shows "All apps" + the selected app chip |
 | Search with one app | App chip shown |
+
+Release [v1.0.33](https://github.com/riyadmondol2006/UnsendVault/releases/tag/v1.0.33) (published by CI): the downloaded
+APK (3,146,606 bytes) matches its SHA-256, is signed with the same certificate (`e443c869…75135197`) and declares the same
+permissions as 1.0.31. Installed over 1.0.31 on the Pixel: archive, exclusions and Notification Access kept, mode
+"All chat apps" by default, capture active (no status card).
