@@ -4,7 +4,7 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 Releases are built and published automatically from `main` and numbered `MAJOR.MINOR.N`, where `N` is the commit count
 (see [docs/RELEASING.md](docs/RELEASING.md)); each GitHub release also lists the commits it contains.
 
-## Unreleased
+## 1.0.31 (2026-11-01)
 
 ### Fixed
 - Apps installed only in a **work profile** or another profile (cloned apps / Dual Messenger, Secure Folder) are now

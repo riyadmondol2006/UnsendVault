@@ -277,3 +277,8 @@ that work profile. Synthetic data only; Google Messages was excluded before Noti
 Android 15+ reports the profile type (work, cloned app, private space); on Android 8–14 such apps are labelled
 "Other profile" because the type isn't available to apps there. Samsung Dual Messenger and Secure Folder were not
 tested (no Samsung device).
+
+Release [v1.0.31](https://github.com/riyadmondol2006/UnsendVault/releases/tag/v1.0.31) (published by CI): the downloaded
+APK (3,141,542 bytes) matches its SHA-256, is signed with the same certificate (`e443c869…75135197`) and declares the same
+permissions as 1.0.29. Installed over 1.0.27 on the Pixel: the existing archive and Notification Access were kept and
+capture stayed active.
