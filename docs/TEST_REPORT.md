@@ -335,3 +335,7 @@ restarted; it now only guards the write in flight.
 Also checked on the installed v1.0.33 release ("All chat apps"): a new chat notification was saved and its chat is
 first in Chats after a fresh start. (An earlier look seemed to show it out of order; the list had only kept its
 previous scroll position.) The synthetic chats were deleted from that archive afterwards.
+
+Release [v1.0.35](https://github.com/riyadmondol2006/UnsendVault/releases/tag/v1.0.35) (published by CI): the downloaded
+APK (3,147,282 bytes) matches its SHA-256, is signed with the same certificate (`e443c869…75135197`) and declares the same
+7 permissions as 1.0.33. Installed over 1.0.33 on the Pixel with Notification Access kept.
