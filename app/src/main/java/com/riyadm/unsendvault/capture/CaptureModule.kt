@@ -45,17 +45,21 @@ class CaptureRuntime(
 
 /**
  * Remembers apps that sent chat-style notifications while "Only selected apps" is on, so the user can add them in one
- * tap. Stores package names only (never content), each at most once per process, capped at [VaultSettings.MAX_NEW_APPS].
+ * tap. Stores package names only (never content), capped at [VaultSettings.MAX_NEW_APPS]; nothing when the user turned
+ * "Suggest new apps" off.
  */
 class NewAppRecorder(private val scope: CoroutineScope, private val settings: () -> SettingsRepository) {
     private val reported = ConcurrentHashMap.newKeySet<String>()
 
     fun record(packageName: String) {
+        // Guards only the write in flight: once stored, the listener sees the package in settings.newApps and stops
+        // calling. Forgetting it afterwards lets the app be suggested again after the list is cleared (suggestions
+        // switched off and on, or the app unticked later).
         if (!reported.add(packageName)) return
         scope.launch {
             try {
                 settings().update { s ->
-                    if (s.appsToSave != AppsToSave.SELECTED_APPS || packageName in s.selectedPackages ||
+                    if (!s.suggestNewApps || s.appsToSave != AppsToSave.SELECTED_APPS || packageName in s.selectedPackages ||
                         packageName in s.excludedPackages || packageName in s.newApps
                     ) {
                         s
@@ -64,7 +68,9 @@ class NewAppRecorder(private val scope: CoroutineScope, private val settings: ()
                     }
                 }
             } catch (e: Exception) {
-                reported.remove(packageName) // try again on its next notification
+                // Not stored; it is offered again on its next notification.
+            } finally {
+                reported.remove(packageName)
             }
         }
     }

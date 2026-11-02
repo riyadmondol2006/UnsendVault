@@ -314,3 +314,24 @@ Release [v1.0.33](https://github.com/riyadmondol2006/UnsendVault/releases/tag/v1
 APK (3,146,606 bytes) matches its SHA-256, is signed with the same certificate (`e443c869…75135197`) and declares the same
 permissions as 1.0.31. Installed over 1.0.31 on the Pixel: archive, exclusions and Notification Access kept, mode
 "All chat apps" by default, capture active (no status card).
+
+## Round 6 (2026-11-02): "Suggest new apps" switch (PR #5)
+
+App changes from @Zokii0's pull request #5 (its two workflow files left out), plus a fix: the recorder kept a
+process-wide "already reported" set, so an app could not be suggested again after the list was cleared until the app
+restarted; it now only guards the write in flight.
+
+- Unit tests: 464 run, 463 passed, 1 skipped (as before), 0 failed (5 new: 4 from the PR, 1 for the fix).
+  Instrumented tests on the Pixel: 29 passed. Lint: no new warnings. Release build OK.
+
+| Test (debug build, Pixel 6 / Android 17, synthetic shell notifications) | Result |
+|---|---|
+| "Only selected apps" | "Suggest new apps" switch shown under Selected apps, on |
+| Unticked app posts, suggestions on | "0 apps selected · 2 new" |
+| Switch off | Count gone; Selected apps list has no "New" entries at the top |
+| Unticked app posts while off | Nothing recorded, nothing saved |
+| Switch on again, app posts | Starts empty, then "· 1 new" (the app is suggested again) |
+
+Also checked on the installed v1.0.33 release ("All chat apps"): a new chat notification was saved and its chat is
+first in Chats after a fresh start. (An earlier look seemed to show it out of order; the list had only kept its
+previous scroll position.) The synthetic chats were deleted from that archive afterwards.

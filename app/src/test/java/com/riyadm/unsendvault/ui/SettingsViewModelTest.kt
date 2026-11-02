@@ -293,4 +293,40 @@ class SettingsViewModelTest {
             cancelAndIgnoreRemainingEvents()
         }
     }
+
+    @Test
+    fun suggestNewApps_off_clearsAndHidesTheNewList() = runTest {
+        settings.update { it.copy(appsToSave = AppsToSave.SELECTED_APPS, newApps = listOf("com.sms")) }
+        val vm = vm()
+        vm.state.testState {
+            val before = awaitMatching { it.settings?.newApps == listOf("com.sms") }
+            assertTrue(before.settings!!.suggestNewApps)
+            assertTrue(before.exclusionCandidates.single { it.packageName == "com.sms" }.isNew)
+            vm.setSuggestNewApps(false)
+            val after = awaitMatching { it.settings?.suggestNewApps == false }
+            assertTrue(after.settings!!.newApps.isEmpty())
+            assertTrue(after.exclusionCandidates.none { it.isNew || it.packageName == "com.sms" })
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun suggestNewApps_off_ignoresAStoredNewList() = runTest {
+        settings.update { it.copy(appsToSave = AppsToSave.SELECTED_APPS, newApps = listOf("com.sms"), suggestNewApps = false) }
+        vm().state.testState {
+            val state = awaitMatching { it.settings != null }
+            assertTrue(state.exclusionCandidates.none { it.isNew || it.packageName == "com.sms" })
+            cancelAndIgnoreRemainingEvents()
+        }
+    }
+
+    @Test
+    fun suggestNewApps_turnedBackOn_startsEmptyAndRecordsAgain() = runTest {
+        settings.update { it.copy(appsToSave = AppsToSave.SELECTED_APPS, newApps = listOf("com.sms")) }
+        val vm = vm()
+        vm.setSuggestNewApps(false)
+        vm.setSuggestNewApps(true)
+        assertTrue(settings.current.suggestNewApps)
+        assertTrue(settings.current.newApps.isEmpty())
+    }
 }

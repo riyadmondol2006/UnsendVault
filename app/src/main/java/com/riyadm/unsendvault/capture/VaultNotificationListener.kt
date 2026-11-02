@@ -158,6 +158,7 @@ class VaultNotificationListener : NotificationListenerService() {
      * with the default messages-only gate; no text is read) is offered as "New". Already-listed apps cost one set lookup.
      */
     private fun noteNewApp(rt: CaptureRuntime, sbn: StatusBarNotification, settings: VaultSettings) {
+        if (!settings.suggestNewApps) return
         val pkg = sbn.packageName ?: return
         if (pkg in settings.newApps) return
         val asIfSelected = settings.copy(appsToSave = AppsToSave.ALL_CHAT_APPS, messagesOnly = true)

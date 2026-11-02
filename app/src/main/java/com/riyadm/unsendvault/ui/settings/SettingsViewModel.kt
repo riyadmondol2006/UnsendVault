@@ -73,7 +73,8 @@ data class SettingsUiState(
             }
             // Selected or "new" apps may have no launcher entry (or live in a profile we can't read): still list them.
             val selected = settings?.selectedPackages.orEmpty()
-            val newApps = settings?.newApps.orEmpty()
+            // With suggestions off an old "new" list is ignored (it is also cleared when the switch is turned off).
+            val newApps = if (settings?.suggestNewApps == false) emptyList() else settings?.newApps.orEmpty()
             (selected + newApps).filterNot { it in byPackage }.forEach {
                 byPackage[it] = ExclusionCandidate(it, otherLabels[it] ?: KnownApps.labelFor(it) ?: it, 0, it in excluded)
             }
@@ -130,6 +131,9 @@ class SettingsViewModel(
     // Capture
     fun setCaptureEnabled(value: Boolean) = update { it.copy(captureEnabled = value) }
     fun setMessagesOnly(value: Boolean) = update { it.copy(messagesOnly = value) }
+
+    /** Turning suggestions off also forgets the apps collected so far, so nothing stale shows up when they come back on. */
+    fun setSuggestNewApps(value: Boolean) = update { it.copy(suggestNewApps = value, newApps = if (value) it.newApps else emptyList()) }
 
     private var appListJob: Job? = null
 

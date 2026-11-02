@@ -4,6 +4,19 @@ All notable changes are documented here. The format follows [Keep a Changelog](h
 Releases are built and published automatically from `main` and numbered `MAJOR.MINOR.N`, where `N` is the commit count
 (see [docs/RELEASING.md](docs/RELEASING.md)); each GitHub release also lists the commits it contains.
 
+## Unreleased
+
+### Added
+- **Suggest new apps** switch (Settings > Capture, shown with "Only selected apps"; on by default, so nothing changes
+  unless you turn it off). Off: unticked apps that send chat-style notifications are dropped without being listed as
+  "New", the count disappears from the Selected apps row, and the list collected so far is cleared. Contributed by
+  @Zokii0 in [pull request #5](https://github.com/riyadmondol2006/UnsendVault/pull/5) (app changes taken; its two
+  extra workflow files were not).
+
+### Fixed
+- An app could not be suggested as "New" again in the same session after the list was cleared (suggestions switched
+  off and on).
+
 ## 1.0.33 (2026-11-01)
 
 Proposed by @Zokii0 in [issue #3](https://github.com/riyadmondol2006/UnsendVault/issues/3).

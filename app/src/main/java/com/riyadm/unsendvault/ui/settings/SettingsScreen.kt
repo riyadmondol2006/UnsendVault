@@ -108,6 +108,7 @@ object SettingsTestTags {
     const val START_TAB = "settings_start_tab"
     const val APPS_TO_SAVE = "settings_apps_to_save"
     const val SELECTED_APPS = "settings_selected_apps"
+    const val SUGGEST_NEW_APPS = "settings_suggest_new_apps"
 }
 
 private enum class SettingsDialog { NONE, APPS_TO_SAVE, RETENTION, TIMEOUT, THEME, START_TAB, REMINDER, DELETE_ALL }
@@ -256,7 +257,7 @@ fun SettingsScreen(
                     modifier = Modifier.testTag(SettingsTestTags.APPS_TO_SAVE),
                 )
                 if (s.appsToSave == AppsToSave.SELECTED_APPS) {
-                    val newCount = s.newApps.count { it !in s.selectedPackages }
+                    val newCount = if (s.suggestNewApps) s.newApps.count { it !in s.selectedPackages } else 0
                     ValueRow(
                         title = stringResource(R.string.settings_selected_apps),
                         value = if (newCount > 0) {
@@ -267,6 +268,14 @@ fun SettingsScreen(
                         icon = Icons.Outlined.Apps,
                         onClick = onOpenSelectedApps,
                         modifier = Modifier.testTag(SettingsTestTags.SELECTED_APPS),
+                    )
+                    SwitchRow(
+                        title = stringResource(R.string.settings_suggest_new_apps),
+                        summary = stringResource(R.string.settings_suggest_new_apps_summary),
+                        checked = s.suggestNewApps,
+                        onCheckedChange = viewModel::setSuggestNewApps,
+                        icon = Icons.Outlined.Apps,
+                        modifier = Modifier.testTag(SettingsTestTags.SUGGEST_NEW_APPS),
                     )
                 } else {
                     ValueRow(

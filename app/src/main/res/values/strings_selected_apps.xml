@@ -16,6 +16,8 @@
     <string name="selected_apps_explainer">Only ticked apps are saved; notifications from every other app are dropped before they are read.</string>
     <string name="selected_apps_profiles_note">Ticking an app also saves its copies in your work profile and other profiles.</string>
     <string name="selected_apps_new">New</string>
+    <string name="settings_suggest_new_apps">Suggest new apps</string>
+    <string name="settings_suggest_new_apps_summary">List apps that send chat-style notifications but aren\'t ticked as New at the top of Selected apps, so you can add them. Off: they are dropped without being listed.</string>
     <string name="selected_apps_state_saved">Saved</string>
     <string name="selected_apps_state_not_saved">Not saved</string>
 </resources>

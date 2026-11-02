@@ -202,6 +202,11 @@ data class VaultSettings(
      * most [MAX_NEW_APPS]. Offered as "New" in the Selected apps list.
      */
     val newApps: List<String> = emptyList(),
+    /**
+     * Offer unselected apps that send chat-style notifications as "New" in Selected apps. On by default. When off nothing
+     * is recorded or shown, and the existing "new" list is cleared; unselected apps are simply dropped.
+     */
+    val suggestNewApps: Boolean = true,
 ) {
     /** Exclusions always apply; in selected mode the app must also be selected. */
     fun savesApp(packageName: String): Boolean =

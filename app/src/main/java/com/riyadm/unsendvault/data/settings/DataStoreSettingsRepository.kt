@@ -89,6 +89,7 @@ class DataStoreSettingsRepository(
 
         /** Comma-separated (package names never contain commas) to keep the order. */
         val newApps = stringPreferencesKey("new_apps")
+        val suggestNewApps = booleanPreferencesKey("suggest_new_apps")
     }
 
     companion object {
@@ -120,6 +121,7 @@ class DataStoreSettingsRepository(
                 selectedPackages = p[Keys.selectedPackages] ?: DEFAULTS.selectedPackages,
                 newApps = p[Keys.newApps]?.split(',')?.filter { it.isNotBlank() }?.distinct()?.takeLast(VaultSettings.MAX_NEW_APPS)
                     ?: DEFAULTS.newApps,
+                suggestNewApps = p[Keys.suggestNewApps] ?: DEFAULTS.suggestNewApps,
             )
         }
 
@@ -146,6 +148,7 @@ class DataStoreSettingsRepository(
             p[Keys.appsToSave] = s.appsToSave.name
             p[Keys.selectedPackages] = s.selectedPackages
             p[Keys.newApps] = s.newApps.filter { it.isNotBlank() && ',' !in it }.distinct().takeLast(VaultSettings.MAX_NEW_APPS).joinToString(",")
+            p[Keys.suggestNewApps] = s.suggestNewApps
         }
     }
 }

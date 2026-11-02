@@ -34,4 +34,30 @@ class NewAppRecorderTest {
         advanceUntilIdle()
         assertEquals(emptyList<String>(), allMode.current.newApps)
     }
+
+    @Test
+    fun recordsNothingWhenSuggestionsAreOff() = runTest {
+        val off = InMemorySettingsRepository(VaultSettings(appsToSave = AppsToSave.SELECTED_APPS, suggestNewApps = false))
+        NewAppRecorder(this) { off }.record("com.sms")
+        advanceUntilIdle()
+        assertEquals(emptyList<String>(), off.current.newApps)
+    }
+
+    @Test
+    fun suggestedAgain_afterSuggestionsAreSwitchedOffAndOn() = runTest {
+        val settings = InMemorySettingsRepository(VaultSettings(appsToSave = AppsToSave.SELECTED_APPS))
+        val recorder = NewAppRecorder(this) { settings }
+        recorder.record("com.sms")
+        advanceUntilIdle()
+        assertEquals(listOf("com.sms"), settings.current.newApps)
+        // What the Settings switch does: off clears the list, on starts empty.
+        settings.update { it.copy(suggestNewApps = false, newApps = emptyList()) }
+        recorder.record("com.sms")
+        advanceUntilIdle()
+        assertEquals(emptyList<String>(), settings.current.newApps)
+        settings.update { it.copy(suggestNewApps = true) }
+        recorder.record("com.sms")
+        advanceUntilIdle()
+        assertEquals(listOf("com.sms"), settings.current.newApps)
+    }
 }

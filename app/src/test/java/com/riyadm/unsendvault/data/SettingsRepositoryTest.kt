@@ -76,6 +76,7 @@ class SettingsRepositoryTest {
             appsToSave = AppsToSave.SELECTED_APPS,
             selectedPackages = setOf("com.whatsapp", "com.viber.voip"),
             newApps = listOf("com.b.sms", "com.a.chat"),
+            suggestNewApps = false,
         )
         val s1 = CoroutineScope(SupervisorJob() + Dispatchers.IO)
         val r1 = repo(file, s1)
