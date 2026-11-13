@@ -61,9 +61,9 @@ class SavedNotificationPolicyTest {
     }
 
     @Test
-    fun ownMessages_neverNotify() {
-        val mine = msg("sent from here", sender = "You")
-        assertTrue(policy.updates(on, parsed(mine), result(1L to mine), now).isEmpty())
+    fun messagesStoredAsSelf_stillNotify_becauseSomeAppsOmitTheSender() {
+        val m = msg("no sender given", sender = "You")
+        assertEquals(listOf("no sender given"), policy.updates(on, parsed(m), result(1L to m), now).single().lines)
     }
 
     @Test

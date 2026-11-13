@@ -10,10 +10,13 @@ import com.riyadm.unsendvault.core.model.VaultSettings
  * - only when the user turned the feature on;
  * - never for the catch-up pass after a reboot/rebind (the source notification was posted long before it was stored);
  * - never for old history that a chat app re-posts alongside a new message;
- * - never for the user's own messages (e.g. a reply sent from UnsendVault or the chat app).
+ *
+ * The sender is deliberately NOT used to decide: some apps (e.g. Viber in 1-to-1 chats) post incoming messages without a
+ * sender, which is stored as the user's own ([selfSender]); filtering on it would silence every notification for them.
+ * A chat app only posts a notification for something that just happened, so every fresh message is reported.
  */
 class SavedNotificationPolicy(
-    private val selfSender: String,
+    @Suppress("unused") private val selfSender: String,
     private val maxPostAgeMillis: Long = MAX_POST_AGE_MS,
     private val maxMessageAgeMillis: Long = MAX_MESSAGE_AGE_MS,
 ) {
@@ -35,7 +38,7 @@ class SavedNotificationPolicy(
         if (capturedAt - parsed.postTime > maxPostAgeMillis) return emptyList()
         val fresh = result.newMessages.filter { ref ->
             val m = ref.message
-            m.sender != selfSender && capturedAt - m.messageTimestamp <= maxMessageAgeMillis
+            capturedAt - m.messageTimestamp <= maxMessageAgeMillis
         }
         val byConversation = fresh.groupBy { it.conversationId }
         val ids = LinkedHashSet<Long>().apply {

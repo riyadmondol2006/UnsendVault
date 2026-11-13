@@ -1,0 +1,101 @@
+diff -ruN orig/app/src/main/java/com/riyadm/unsendvault/capture/NotificationAccess.kt UnsendVault-main/app/src/main/java/com/riyadm/unsendvault/capture/NotificationAccess.kt
+--- orig/app/src/main/java/com/riyadm/unsendvault/capture/NotificationAccess.kt	2026-11-13 20:39:17.920015317 +0000
++++ UnsendVault-main/app/src/main/java/com/riyadm/unsendvault/capture/NotificationAccess.kt	2026-11-13 20:46:34.624762901 +0000
+@@ -3,6 +3,9 @@
+ import android.content.ComponentName
+ import android.content.Context
+ import android.content.Intent
++import android.content.pm.PackageManager
++import android.os.Handler
++import android.os.Looper
+ import android.net.Uri
+ import android.os.Build
+ import android.os.Bundle
+@@ -47,6 +50,34 @@
+     }
+ 
+     /**
++     * User-initiated reconnect. `requestRebind()` is silently ignored when the system still thinks the listener is
++     * bound or its binding is stale (typical after an app update), so if it has not connected shortly after, toggle
++     * the component's enabled state, which forces the system to bind it again.
++     */
++    fun reconnect(context: Context) {
++        val app = context.applicationContext
++        requestRebind(app)
++        Handler(Looper.getMainLooper()).postDelayed({
++            if (!ListenerConnectionState.connected.value) forceRebind(app)
++        }, FORCE_REBIND_DELAY_MS)
++    }
++
++    fun forceRebind(context: Context) {
++        if (!isGranted(context)) return
++        try {
++            val pm = context.packageManager
++            val cn = component(context)
++            pm.setComponentEnabledSetting(cn, PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP)
++            pm.setComponentEnabledSetting(cn, PackageManager.COMPONENT_ENABLED_STATE_ENABLED, PackageManager.DONT_KILL_APP)
++            requestRebind(context)
++        } catch (e: Exception) {
++            CaptureLog.d("forceRebind failed: ${e.javaClass.simpleName}")
++        }
++    }
++
++    private const val FORCE_REBIND_DELAY_MS = 2_000L
++
++    /**
+      * Candidate settings screens, best first:
+      * 1. API 30+: the per-app Notification Access detail screen for our component.
+      * 2. The Notification Access list, with the component extra and the Settings "highlight" fragment-args trick.
+@@ -101,7 +132,7 @@
+ 
+     override val connected: StateFlow<Boolean> get() = ListenerConnectionState.connected
+ 
+-    override fun requestRebind() = NotificationAccess.requestRebind(app)
++    override fun requestRebind() = NotificationAccess.reconnect(app)
+ 
+     override fun accessSettingsIntent(): Intent = NotificationAccess.bestSettingsIntent(app)
+ 
+diff -ruN orig/app/src/main/java/com/riyadm/unsendvault/notify/SavedNotificationPolicy.kt UnsendVault-main/app/src/main/java/com/riyadm/unsendvault/notify/SavedNotificationPolicy.kt
+--- orig/app/src/main/java/com/riyadm/unsendvault/notify/SavedNotificationPolicy.kt	2026-11-13 20:39:17.921268088 +0000
++++ UnsendVault-main/app/src/main/java/com/riyadm/unsendvault/notify/SavedNotificationPolicy.kt	2026-11-13 20:46:34.624533191 +0000
+@@ -10,10 +10,13 @@
+  * - only when the user turned the feature on;
+  * - never for the catch-up pass after a reboot/rebind (the source notification was posted long before it was stored);
+  * - never for old history that a chat app re-posts alongside a new message;
+- * - never for the user's own messages (e.g. a reply sent from UnsendVault or the chat app).
++ *
++ * The sender is deliberately NOT used to decide: some apps (e.g. Viber in 1-to-1 chats) post incoming messages without a
++ * sender, which is stored as the user's own ([selfSender]); filtering on it would silence every notification for them.
++ * A chat app only posts a notification for something that just happened, so every fresh message is reported.
+  */
+ class SavedNotificationPolicy(
+-    private val selfSender: String,
++    @Suppress("unused") private val selfSender: String,
+     private val maxPostAgeMillis: Long = MAX_POST_AGE_MS,
+     private val maxMessageAgeMillis: Long = MAX_MESSAGE_AGE_MS,
+ ) {
+@@ -35,7 +38,7 @@
+         if (capturedAt - parsed.postTime > maxPostAgeMillis) return emptyList()
+         val fresh = result.newMessages.filter { ref ->
+             val m = ref.message
+-            m.sender != selfSender && capturedAt - m.messageTimestamp <= maxMessageAgeMillis
++            capturedAt - m.messageTimestamp <= maxMessageAgeMillis
+         }
+         val byConversation = fresh.groupBy { it.conversationId }
+         val ids = LinkedHashSet<Long>().apply {
+diff -ruN orig/app/src/test/java/com/riyadm/unsendvault/notify/SavedNotificationPolicyTest.kt UnsendVault-main/app/src/test/java/com/riyadm/unsendvault/notify/SavedNotificationPolicyTest.kt
+--- orig/app/src/test/java/com/riyadm/unsendvault/notify/SavedNotificationPolicyTest.kt	2026-11-13 20:39:17.926286616 +0000
++++ UnsendVault-main/app/src/test/java/com/riyadm/unsendvault/notify/SavedNotificationPolicyTest.kt	2026-11-13 20:46:34.624681704 +0000
+@@ -61,9 +61,9 @@
+     }
+ 
+     @Test
+-    fun ownMessages_neverNotify() {
+-        val mine = msg("sent from here", sender = "You")
+-        assertTrue(policy.updates(on, parsed(mine), result(1L to mine), now).isEmpty())
++    fun messagesStoredAsSelf_stillNotify_becauseSomeAppsOmitTheSender() {
++        val m = msg("no sender given", sender = "You")
++        assertEquals(listOf("no sender given"), policy.updates(on, parsed(m), result(1L to m), now).single().lines)
+     }
+ 
+     @Test
