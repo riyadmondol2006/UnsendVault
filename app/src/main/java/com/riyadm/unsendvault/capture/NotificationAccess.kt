@@ -3,6 +3,9 @@ package com.riyadm.unsendvault.capture
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
+import android.content.pm.PackageManager
+import android.os.Handler
+import android.os.Looper
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -45,6 +48,34 @@ object NotificationAccess {
             CaptureLog.d("requestRebind failed: ${e.javaClass.simpleName}")
         }
     }
+
+    /**
+     * User-initiated reconnect. `requestRebind()` is silently ignored when the system still thinks the listener is
+     * bound or its binding is stale (typical after an app update), so if it has not connected shortly after, toggle
+     * the component's enabled state, which forces the system to bind it again.
+     */
+    fun reconnect(context: Context) {
+        val app = context.applicationContext
+        requestRebind(app)
+        Handler(Looper.getMainLooper()).postDelayed({
+            if (!ListenerConnectionState.connected.value) forceRebind(app)
+        }, FORCE_REBIND_DELAY_MS)
+    }
+
+    fun forceRebind(context: Context) {
+        if (!isGranted(context)) return
+        try {
+            val pm = context.packageManager
+            val cn = component(context)
+            pm.setComponentEnabledSetting(cn, PackageManager.COMPONENT_ENABLED_STATE_DISABLED, PackageManager.DONT_KILL_APP)
+            pm.setComponentEnabledSetting(cn, PackageManager.COMPONENT_ENABLED_STATE_ENABLED, PackageManager.DONT_KILL_APP)
+            requestRebind(context)
+        } catch (e: Exception) {
+            CaptureLog.d("forceRebind failed: ${e.javaClass.simpleName}")
+        }
+    }
+
+    private const val FORCE_REBIND_DELAY_MS = 2_000L
 
     /**
      * Candidate settings screens, best first:
@@ -101,7 +132,7 @@ class AndroidListenerStatus(context: Context) : ListenerStatus {
 
     override val connected: StateFlow<Boolean> get() = ListenerConnectionState.connected
 
-    override fun requestRebind() = NotificationAccess.requestRebind(app)
+    override fun requestRebind() = NotificationAccess.reconnect(app)
 
     override fun accessSettingsIntent(): Intent = NotificationAccess.bestSettingsIntent(app)
 
