@@ -6,6 +6,7 @@ import com.riyadm.unsendvault.data.backup.BackupManagerImpl
 import com.riyadm.unsendvault.data.backup.BackupStore
 import com.riyadm.unsendvault.data.db.VaultDatabase
 import com.riyadm.unsendvault.data.db.verifyOrInitKeyCheck
+import com.riyadm.unsendvault.data.media.MediaVault
 import com.riyadm.unsendvault.data.repo.RoomVaultRepository
 import com.riyadm.unsendvault.data.retention.RetentionRunner
 import com.riyadm.unsendvault.data.retention.WorkManagerRetentionScheduler
@@ -40,8 +41,12 @@ object DataModule {
     const val KEY_FILE_NAME = "vault.key"
     const val LEGACY_NOTICE_FILE_NAME = "legacy-archive-discarded"
 
-    fun createVaultRepository(context: Context): VaultRepository =
-        RoomVaultRepository(encryptedHolder(context.applicationContext))
+    fun createVaultRepository(context: Context): VaultRepository {
+        val app = context.applicationContext
+        // Pictures of media messages (opt-in), encrypted with the vault key; wiped together with the vault.
+        val media = MediaVault(File(app.noBackupFilesDir, MediaVault.DIR_NAME))
+        return RoomVaultRepository(encryptedHolder(app, mediaVault = media), media)
+    }
 
     fun createSettingsRepository(context: Context, container: AppContainer): SettingsRepository =
         DataStoreSettingsRepository(context.applicationContext.vaultSettingsDataStore, container.appScope)
@@ -82,6 +87,7 @@ object DataModule {
         wrapper: KeyWrapper = AndroidKeystoreKeyWrapper(),
         legacyDbName: String? = VaultDatabase.LEGACY_FILE_NAME,
         noticeFile: File? = File(app.noBackupFilesDir, LEGACY_NOTICE_FILE_NAME),
+        mediaVault: MediaVault? = null,
     ): VaultDatabaseHolder {
         val keyManager = VaultKeyManager(keyFile, wrapper)
         val notice = LegacyArchiveNotice(noticeFile)
@@ -130,6 +136,8 @@ object DataModule {
                     app.deleteDatabase(dbName)
                     legacyDbName?.let { LegacyArchive.deleteAll(app.getDatabasePath(it)) }
                     keyManager.destroy()
+                    // Pictures are encrypted with the destroyed key and their ids restart with a new database.
+                    mediaVault?.clear()
                 }
             },
             legacyNotice = notice,

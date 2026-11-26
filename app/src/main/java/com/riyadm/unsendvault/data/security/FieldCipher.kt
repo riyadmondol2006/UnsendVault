@@ -49,6 +49,12 @@ class FieldCipher(
         CONVERSATION_PREVIEW("conversations.last_message_preview"),
         CONVERSATION_KEY("conversations.conversation_key"),
         KEY_CHECK("vault_meta.key_check"),
+
+        /** Picture files of media messages (see com.riyadm.unsendvault.data.media.MediaVault); not a database column. */
+        MEDIA_CONTENT("media.content"),
+
+        /** A linked phone file (MediaStore URI + MIME type), see MediaVault.writeLink. */
+        MEDIA_LINK("media.link"),
     }
 
     /** Blind-index domains. The label is hashed into every index value and must never change. */
@@ -63,16 +69,24 @@ class FieldCipher(
     private val macs = ThreadLocal.withInitial { Mac.getInstance(HMAC).apply { init(indexKey) } }
 
     fun encrypt(plain: String, field: Field, binding: String): ByteArray {
+        val input = plain.toByteArray(UTF_8)
+        try {
+            return encryptBytes(input, field, binding)
+        } finally {
+            input.fill(0)
+        }
+    }
+
+    /** Same format and AAD as [encrypt], for binary content. Does not modify or zero [input]. */
+    fun encryptBytes(input: ByteArray, field: Field, binding: String): ByteArray {
         val nonce = ByteArray(NONCE_BYTES).also(random::nextBytes)
         val cipher = ciphers.get()!!
         cipher.init(Cipher.ENCRYPT_MODE, fieldKey, GCMParameterSpec(TAG_BITS, nonce))
         cipher.updateAAD(aad(field, binding))
-        val input = plain.toByteArray(UTF_8)
         val out = ByteArray(1 + NONCE_BYTES + cipher.getOutputSize(input.size))
         out[0] = VERSION
         System.arraycopy(nonce, 0, out, 1, NONCE_BYTES)
         val written = cipher.doFinal(input, 0, input.size, out, 1 + NONCE_BYTES)
-        input.fill(0)
         return if (written == out.size - 1 - NONCE_BYTES) out else out.copyOf(1 + NONCE_BYTES + written)
     }
 
@@ -80,6 +94,16 @@ class FieldCipher(
 
     /** Plaintext, or null when [blob] is malformed, was written for another column/owner, or fails authentication. */
     fun decryptOrNull(blob: ByteArray, field: Field, binding: String): String? {
+        val plain = decryptBytesOrNull(blob, field, binding) ?: return null
+        return try {
+            String(plain, UTF_8)
+        } finally {
+            plain.fill(0)
+        }
+    }
+
+    /** Binary counterpart of [decryptOrNull]; the caller owns the returned array. */
+    fun decryptBytesOrNull(blob: ByteArray, field: Field, binding: String): ByteArray? {
         if (blob.size < MIN_BLOB || blob[0] != VERSION) {
             onDecryptFailure(field, GeneralSecurityException("malformed blob (${blob.size} bytes)"))
             return null
@@ -88,12 +112,7 @@ class FieldCipher(
             val cipher = ciphers.get()!!
             cipher.init(Cipher.DECRYPT_MODE, fieldKey, GCMParameterSpec(TAG_BITS, blob, 1, NONCE_BYTES))
             cipher.updateAAD(aad(field, binding))
-            val plain = cipher.doFinal(blob, 1 + NONCE_BYTES, blob.size - 1 - NONCE_BYTES)
-            try {
-                String(plain, UTF_8)
-            } finally {
-                plain.fill(0)
-            }
+            cipher.doFinal(blob, 1 + NONCE_BYTES, blob.size - 1 - NONCE_BYTES)
         } catch (e: GeneralSecurityException) {
             onDecryptFailure(field, e)
             null
@@ -158,6 +177,9 @@ class FieldCipher(
 
         /** AAD owner of message_revisions.text: the message the revision belongs to. */
         fun forRevision(messageId: Long): String = "m:$messageId"
+
+        /** AAD owner of a media file: the message it belongs to (message ids are never reused, see MediaVault). */
+        fun forMedia(messageId: Long): String = "media:$messageId"
 
         /** AAD owner of conversations.title / last_message_preview / conversation_key: the conversation's identity. */
         fun forConversation(packageName: String, conversationIndex: String): String = "p:$packageName|$conversationIndex"

@@ -83,6 +83,7 @@ object CaptureModule {
         val registry = AdapterRegistry.createDefault(placeholders)
         val cache = container.captureSettings
         container.settingsRepository // attaches the settings cache (see AppContainer)
+        val mediaCapture = MediaCapture(context.contentResolver, vault = { container.vaultRepository })
         val engine = DefaultCaptureEngine(
             scope = container.appScope,
             dispatcher = Dispatchers.Default.limitedParallelism(1),
@@ -92,8 +93,10 @@ object CaptureModule {
             sink = object : CaptureSink {
                 override suspend fun ingest(parsed: ParsedNotification, capturedAt: Long) {
                     val result = container.vaultRepository.ingest(parsed, capturedAt)
-                    if (result.newMessages.isEmpty() && result.possiblyDeletedIn.isEmpty()) return
                     val settings = cache.get()
+                    // Right away: the URI grant ends when the source notification goes away.
+                    if (settings.savePictures && result.mediaCandidates.isNotEmpty()) mediaCapture.copy(result.mediaCandidates)
+                    if (result.newMessages.isEmpty() && result.possiblyDeletedIn.isEmpty()) return
                     if (settings.savedMessageNotifications) {
                         container.savedMessageNotifier.onIngested(settings, parsed, result, capturedAt)
                     }

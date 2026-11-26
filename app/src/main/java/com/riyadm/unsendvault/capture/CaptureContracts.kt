@@ -53,6 +53,11 @@ data class SnapshotMessage(
     val timestamp: Long,
     /** Message.dataMimeType when the message is an image/media item. */
     val dataMimeType: String? = null,
+    /**
+     * Message.dataUri as a string (content:// only). The system grants notification listeners temporary read access to
+     * it while the notification is showing (Android 11+), so it must be copied right away to be kept.
+     */
+    val dataUri: String? = null,
 )
 
 /** One message extracted from a notification, ready to be archived. */
@@ -69,6 +74,10 @@ data class CapturedMessage(
     val messageTimestamp: Long,
     /** True when [messageTimestamp] came from a MessagingStyle message (precise identity), false for fallbacks. */
     val hasPreciseTimestamp: Boolean,
+    /** content:// URI of the picture the app attached to this message (MessagingStyle data), if any. Never stored. */
+    val mediaUri: String? = null,
+    /** MIME type the app declared for [mediaUri]. */
+    val mediaMimeType: String? = null,
 )
 
 /** An explicit "message deleted/unsent" marker the source app displayed. */
@@ -112,8 +121,15 @@ data class IngestResult(
     val newMessages: List<SavedRef> = emptyList(),
     /** Conversations in which a message was newly marked possibly deleted. */
     val possiblyDeletedIn: Set<Long> = emptySet(),
+    /**
+     * Archived rows (new or already stored) whose captured message carries a picture URI. In memory only: the capture
+     * sink copies the picture into the encrypted media store while the URI grant is still valid.
+     */
+    val mediaCandidates: List<MediaRef> = emptyList(),
 ) {
     data class SavedRef(val conversationId: Long, val message: CapturedMessage)
+
+    data class MediaRef(val messageId: Long, val uri: String, val mimeType: String)
 
     val changed: Boolean get() = inserted > 0 || updated > 0 || markedPossiblyDeleted > 0
 

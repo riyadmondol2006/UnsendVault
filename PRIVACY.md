@@ -15,10 +15,13 @@ archive.
 Only after you grant **Notification Access** in Android's settings, UnsendVault receives the notifications other apps
 post. From notifications it treats as messages (by default), it reads the app name, conversation title, sender name,
 message text or placeholder (for example "Photo"), and timestamps. It also notes when a notification was removed and
-the reason Android gives, for display only.
+the reason Android gives, for display only. With **Save pictures** on (off by default), it also copies the picture a
+chat app attached to a message notification (Android lets it read that picture only while the notification is shown).
 
-It does not read your contacts, SMS database, files, photos, location, microphone or camera, and it cannot read
-anything inside other apps that was not shown in a notification.
+It does not read your contacts, SMS database, files, location, microphone or camera, and it cannot read anything
+inside other apps that was not shown in a notification. Your photos, videos and audio files are read only if you use
+**Find on phone** on a media message and allow access: it then lists (read-only) the files saved on the phone around
+that message's time so you can pick one. Nothing is changed or deleted on the phone.
 
 To show app names and icons and to list apps you can exclude, it looks up launchable apps in your profiles (including a
 work profile) through Android's launcher API. This list stays on the device and is never stored or sent. With **Only selected apps**, the package
@@ -32,6 +35,10 @@ offered as "New".
   key that is generated on the device and protected by the Android Keystore. App names, package names, timestamps,
   favorite/deleted flags and message counts are stored without this extra encryption; like everything in app-private
   storage they are still covered by Android's own file-based encryption of the device.
+- Saved pictures (only with **Save pictures** on): one file per message in app-private storage, encrypted
+  (AES-256-GCM) with the same Keystore-protected key as the message text. They are deleted with their message (manual
+  delete, auto-delete, Delete all, vault reset) and are not included in exports. Pictures you pick with **Find on
+  phone** are copied the same way; for videos and audio only an encrypted reference to the phone file is stored.
 - Your settings: in app-private storage (DataStore).
 - Before storage, one-time codes and sensitive numbers are replaced by a placeholder when the corresponding filters
   are on (they are on by default). Content that Android itself hides is not stored.

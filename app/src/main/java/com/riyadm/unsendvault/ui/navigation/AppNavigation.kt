@@ -197,7 +197,12 @@ private fun NavHostController.navigateTopLevel(item: TopLevel) {
 }
 
 private fun conversationViewModel(id: Long, c: AppContainer) =
-    ConversationViewModel(id, c.vaultRepository, replyGateway = c.replyGateway)
+    ConversationViewModel(
+        id,
+        c.vaultRepository,
+        replyGateway = c.replyGateway,
+        phoneMedia = com.riyadm.unsendvault.ui.media.PhoneMediaFinder(c.context),
+    )
 
 /** Saved-message notifications: clear the chat's notification while it is open, and don't post new ones for it. */
 private fun AppContainer.onConversationVisible(id: Long, visible: Boolean) {

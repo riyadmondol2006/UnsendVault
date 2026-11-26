@@ -1,6 +1,11 @@
 package com.riyadm.unsendvault.ui.conversation
 
+import android.content.Intent
+import android.net.Uri
+import android.provider.Settings
 import androidx.activity.compose.BackHandler
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.combinedClickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
@@ -29,6 +34,7 @@ import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.Star
 import androidx.compose.material.icons.outlined.DeleteOutline
 import androidx.compose.material.icons.outlined.Forum
+import androidx.compose.material.icons.outlined.ImageSearch
 import androidx.compose.material.icons.outlined.SelectAll
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
@@ -39,6 +45,7 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.SnackbarHostState
+import androidx.compose.material3.SnackbarResult
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
@@ -49,10 +56,12 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.platform.testTag
 import androidx.compose.ui.res.pluralStringResource
@@ -66,6 +75,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.lifecycle.compose.LifecycleResumeEffect
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.riyadm.unsendvault.R
@@ -82,6 +92,12 @@ import com.riyadm.unsendvault.ui.components.BackButton
 import com.riyadm.unsendvault.ui.components.ConfirmDialog
 import com.riyadm.unsendvault.ui.components.EmptyState
 import com.riyadm.unsendvault.ui.components.MessageBadges
+import com.riyadm.unsendvault.ui.media.LinkedFile
+import com.riyadm.unsendvault.ui.media.MessageAttachment
+import com.riyadm.unsendvault.ui.media.MessageAttachmentView
+import com.riyadm.unsendvault.ui.media.PhoneMediaKind
+import com.riyadm.unsendvault.ui.media.PhoneMediaMatcher
+import com.riyadm.unsendvault.ui.media.PhoneMediaPickerDialog
 import com.riyadm.unsendvault.ui.components.messageBodyText
 
 object ConversationTestTags {
@@ -114,6 +130,34 @@ fun ConversationRoute(
         onPauseOrDispose { onVisibleChanged(false) }
     }
     val appLabel = state.conversation?.appLabel.orEmpty()
+    val context = LocalContext.current
+    val scope = rememberCoroutineScope()
+    val mediaVersion by viewModel.mediaVersion.collectAsStateWithLifecycle()
+    // "Find on phone": the message whose file is being picked, and the one waiting for the permission answer.
+    var findFor by remember { mutableStateOf<ArchivedMessage?>(null) }
+    var pendingFind by remember { mutableStateOf<ArchivedMessage?>(null) }
+    val permissionLauncher = rememberLauncherForActivityResult(ActivityResultContracts.RequestMultiplePermissions()) { result ->
+        val message = pendingFind
+        pendingFind = null
+        if (message == null) return@rememberLauncherForActivityResult
+        if (result.values.any { it } || viewModel.hasPhoneAccess()) {
+            findFor = message
+        } else {
+            scope.launch {
+                val answer = snackbar.showSnackbar(
+                    resources.getString(R.string.find_on_phone_denied),
+                    actionLabel = resources.getString(R.string.action_open_settings),
+                )
+                if (answer == SnackbarResult.ActionPerformed) {
+                    runCatching {
+                        context.startActivity(
+                            Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS, Uri.fromParts("package", context.packageName, null)),
+                        )
+                    }
+                }
+            }
+        }
+    }
     LaunchedEffect(viewModel) {
         viewModel.events.collect { event ->
             when (event) {
@@ -130,6 +174,9 @@ fun ConversationRoute(
                     ReplyResult.FAILED -> snackbar.showSnackbar(resources.getString(R.string.reply_failed, appLabel))
                     ReplyResult.EMPTY -> Unit
                 }
+                is ConversationEvent.MediaAttached -> snackbar.showSnackbar(
+                    resources.getString(if (event.ok) R.string.find_on_phone_attached else R.string.find_on_phone_failed),
+                )
             }
         }
     }
@@ -156,7 +203,40 @@ fun ConversationRoute(
         onClearSelection = viewModel::clearSelection,
         onDeleteSelected = viewModel::deleteSelected,
         onDeleteConversation = viewModel::deleteConversation,
+        loadAttachment = viewModel::loadAttachment,
+        mediaVersion = mediaVersion,
+        onFindOnPhone = if (viewModel.canFindOnPhone) {
+            { message ->
+                if (viewModel.hasPhoneAccess()) {
+                    findFor = message
+                } else {
+                    pendingFind = message
+                    permissionLauncher.launch(viewModel.phonePermissions())
+                }
+            }
+        } else {
+            null
+        },
+        onOpenLinked = { file ->
+            if (!viewModel.openLinked(context, file)) {
+                scope.launch { snackbar.showSnackbar(resources.getString(R.string.media_open_failed)) }
+            }
+        },
+        onRemoveAttachment = viewModel::removeAttachment,
     )
+    findFor?.let { message ->
+        PhoneMediaPickerDialog(
+            message = message,
+            partialAccess = viewModel.hasPartialPhoneAccess(),
+            loadCandidates = { anyApp -> viewModel.findOnPhone(message, anyApp) },
+            loadThumbnail = viewModel::phoneThumbnail,
+            onPick = { file ->
+                findFor = null
+                viewModel.attachFromPhone(message.id, file)
+            },
+            onDismiss = { findFor = null },
+        )
+    }
 }
 
 @Composable
@@ -174,6 +254,14 @@ fun ConversationScreen(
     onReplyDraftChange: (String) -> Unit = {},
     onSendReply: () -> Unit = {},
     onOpenSourceApp: (() -> Unit)? = null,
+    /** Saved picture and/or linked phone file of a media message, or null. */
+    loadAttachment: suspend (Long) -> MessageAttachment? = { null },
+    /** Changes when an attachment was added or removed, so bubbles reload it. */
+    mediaVersion: Int = 0,
+    /** "Find on phone" for a media message; null hides the button. */
+    onFindOnPhone: ((ArchivedMessage) -> Unit)? = null,
+    onOpenLinked: (LinkedFile) -> Unit = {},
+    onRemoveAttachment: (Long) -> Unit = {},
 ) {
     val formatter = rememberTimeFormatter()
     var confirmDeleteSelected by rememberSaveable { mutableStateOf(false) }
@@ -267,6 +355,11 @@ fun ConversationScreen(
                                 if (state.selecting) onToggleSelection(item.message.id) else onOpenMessage(item.message.id)
                             },
                             onLongClick = { onToggleSelection(item.message.id) },
+                            loadAttachment = loadAttachment,
+                            mediaVersion = mediaVersion,
+                            onFindOnPhone = onFindOnPhone,
+                            onOpenLinked = onOpenLinked,
+                            onRemoveAttachment = onRemoveAttachment,
                         )
                     }
                 }
@@ -337,9 +430,22 @@ private fun MessageBubble(
     formatter: TimeFormatter,
     onClick: () -> Unit,
     onLongClick: () -> Unit,
+    loadAttachment: suspend (Long) -> MessageAttachment?,
+    mediaVersion: Int,
+    onFindOnPhone: ((ArchivedMessage) -> Unit)?,
+    onOpenLinked: (LinkedFile) -> Unit,
+    onRemoveAttachment: (Long) -> Unit,
 ) {
     val colors = MaterialTheme.colorScheme
     val selectLabel = stringResource(R.string.action_select)
+    val isMedia = message.contentKind == ContentKind.MEDIA_PLACEHOLDER
+    val attachment by produceState<MessageAttachment?>(null, message.id, isMedia, mediaVersion) {
+        value = if (isMedia) loadAttachment(message.id) else null
+    }
+    // Offer "Find on phone" while nothing is attached, or when only a preview picture exists for a video/voice message.
+    val expected = remember(message.text) { PhoneMediaMatcher.expectedKind(message.text) }
+    val showFind = isMedia && onFindOnPhone != null && attachment?.linked == null &&
+        (attachment?.picture == null || expected == PhoneMediaKind.VIDEO || expected == PhoneMediaKind.AUDIO)
     Row(
         Modifier.fillMaxWidth().testTag(ConversationTestTags.message(message.id)),
         verticalAlignment = Alignment.CenterVertically,
@@ -372,12 +478,25 @@ private fun MessageBubble(
                 if (showSender && sender != null) {
                     Text(sender, style = MaterialTheme.typography.labelLarge, color = colors.primary)
                 }
+                attachment?.let { a ->
+                    MessageAttachmentView(a, onOpenLinked = onOpenLinked, onRemove = { onRemoveAttachment(message.id) })
+                }
                 Text(
                     messageBodyText(message),
                     style = MaterialTheme.typography.bodyLarge,
                     fontStyle = if (message.contentKind == ContentKind.TEXT) FontStyle.Normal else FontStyle.Italic,
                 )
-                MessageBadges(message)
+                MessageBadges(
+                    message,
+                    pictureSaved = attachment?.picture != null,
+                    linkedFromPhone = attachment?.linked != null,
+                )
+                if (showFind && onFindOnPhone != null) {
+                    TextButton(onClick = { onFindOnPhone(message) }) {
+                        Icon(Icons.Outlined.ImageSearch, contentDescription = null, modifier = Modifier.size(18.dp))
+                        Text(stringResource(R.string.action_find_on_phone), modifier = Modifier.padding(start = 6.dp))
+                    }
+                }
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     if (message.isFavorite) {
                         Icon(

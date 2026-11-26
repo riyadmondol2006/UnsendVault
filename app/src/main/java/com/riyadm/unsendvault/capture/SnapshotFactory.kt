@@ -19,6 +19,7 @@ object SnapshotFactory {
     /** Upper bound on MessagingStyle entries copied per notification (newest kept). */
     const val MAX_MESSAGES = 100
     private const val MAX_FIELD_LENGTH = 5_000
+    private const val MAX_URI_LENGTH = 2_000
 
     // Notification.EXTRA_* keys as literals so reading them never depends on the runtime API level.
     private const val EXTRA_TITLE = "android.title"
@@ -45,6 +46,7 @@ object SnapshotFactory {
     private const val KEY_SENDER_PERSON = "sender_person"
     private const val KEY_COMPAT_PERSON = "person"
     private const val KEY_DATA_MIME_TYPE = "type"
+    private const val KEY_DATA_URI = "uri"
     private const val KEY_PERSON_NAME = "name"
 
     /**
@@ -160,7 +162,15 @@ object SnapshotFactory {
             text = bundle.text(KEY_TEXT),
             timestamp = timestamp,
             dataMimeType = bundle.string(KEY_DATA_MIME_TYPE)?.takeIf { it.isNotBlank() },
+            dataUri = contentUri(bundle.raw(KEY_DATA_URI)),
         )
+    }
+
+    /** String form of a content:// Uri (never file:// or anything else); null for other values. */
+    private fun contentUri(value: Any?): String? {
+        val uri = value as? android.net.Uri ?: return null
+        if (!"content".equals(safe { uri.scheme }, ignoreCase = true)) return null
+        return safe { uri.toString() }?.takeIf { it.length <= MAX_URI_LENGTH }
     }
 
     /** Name of an android.app.Person (API 28+) or of a Person serialised as a Bundle by AndroidX on older APIs. */

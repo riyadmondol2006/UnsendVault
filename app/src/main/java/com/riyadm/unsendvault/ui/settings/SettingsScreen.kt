@@ -24,6 +24,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.Article
 import androidx.compose.material.icons.outlined.Apps
+import androidx.compose.material.icons.outlined.Image
 import androidx.compose.material.icons.outlined.Backup
 import androidx.compose.material.icons.outlined.BatteryAlert
 import androidx.compose.material.icons.outlined.Block
@@ -248,6 +249,13 @@ fun SettingsScreen(
                     checked = s.messagesOnly,
                     onCheckedChange = viewModel::setMessagesOnly,
                     icon = Icons.Outlined.Apps,
+                )
+                SwitchRow(
+                    title = stringResource(R.string.settings_save_pictures),
+                    summary = stringResource(R.string.settings_save_pictures_summary),
+                    checked = s.savePictures,
+                    onCheckedChange = viewModel::setSavePictures,
+                    icon = Icons.Outlined.Image,
                 )
                 ValueRow(
                     title = stringResource(R.string.settings_apps_to_save),

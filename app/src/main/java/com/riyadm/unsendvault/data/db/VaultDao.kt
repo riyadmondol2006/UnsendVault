@@ -219,6 +219,10 @@ interface VaultDao {
     @Query("SELECT * FROM messages ORDER BY id")
     suspend fun allMessages(): List<MessageEntity>
 
+    /** Which of [ids] still exist (media files are kept only for existing messages). */
+    @Query("SELECT id FROM messages WHERE id IN (:ids)")
+    suspend fun existingMessageIds(ids: List<Long>): List<Long>
+
     @Query("SELECT * FROM message_revisions ORDER BY message_id, captured_at, id")
     suspend fun allRevisions(): List<MessageRevisionEntity>
 

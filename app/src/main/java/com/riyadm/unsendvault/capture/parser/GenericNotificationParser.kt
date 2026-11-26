@@ -144,6 +144,8 @@ open class GenericNotificationParser(protected val placeholders: CapturePlacehol
                 contentKind = kind,
                 messageTimestamp = timestamp,
                 hasPreciseTimestamp = precise,
+                mediaUri = m.dataUri?.takeIf { m.dataMimeType != null },
+                mediaMimeType = m.dataMimeType?.takeIf { m.dataUri != null },
             )
         }
         return finish(out.values.toList(), markers, noise)

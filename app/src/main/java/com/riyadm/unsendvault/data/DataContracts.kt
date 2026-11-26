@@ -8,6 +8,8 @@ import com.riyadm.unsendvault.core.model.AppSummary
 import com.riyadm.unsendvault.core.model.ArchivedMessage
 import com.riyadm.unsendvault.core.model.Conversation
 import com.riyadm.unsendvault.core.model.MessageDetail
+import com.riyadm.unsendvault.core.model.MediaLink
+import com.riyadm.unsendvault.core.model.MessageMedia
 import com.riyadm.unsendvault.core.model.MessageQuery
 import com.riyadm.unsendvault.core.model.VaultSettings
 import com.riyadm.unsendvault.core.model.VaultStats
@@ -40,6 +42,30 @@ interface VaultRepository {
 
     /** Deletes non-favorite messages whose messageTimestamp is older than [cutoffMillis]. Returns rows deleted. */
     suspend fun deleteOlderThan(cutoffMillis: Long, keepFavorites: Boolean = true): Int
+
+    /** True when a picture is stored for [messageId]. */
+    suspend fun hasMedia(messageId: Long): Boolean = false
+
+    /** Encrypts and stores the picture of an archived message. False when the message no longer exists or on failure. */
+    suspend fun saveMedia(messageId: Long, mimeType: String, bytes: ByteArray): Boolean = false
+
+    /** The decrypted picture of [messageId], or null. */
+    suspend fun loadMedia(messageId: Long): MessageMedia? = null
+
+    /** Links a file on the phone to a media message (encrypted reference). False when the message no longer exists. */
+    suspend fun saveMediaLink(messageId: Long, link: MediaLink): Boolean = false
+
+    /** The phone file linked to [messageId], or null. */
+    suspend fun loadMediaLink(messageId: Long): MediaLink? = null
+
+    /**
+     * Removes the saved picture and the linked file reference of [messageId] (the phone file itself is untouched) and
+     * remembers it, so the picture is not copied again from the notification ([isMediaRemoved]).
+     */
+    suspend fun removeMedia(messageId: Long) {}
+
+    /** True when the user removed the picture/link of [messageId]; automatic capture then skips it. */
+    suspend fun isMediaRemoved(messageId: Long): Boolean = false
 }
 
 interface SettingsRepository {

@@ -10,8 +10,11 @@ import com.riyadm.unsendvault.capture.ParsedNotification
 import com.riyadm.unsendvault.capture.RemovalEvent
 import com.riyadm.unsendvault.core.model.AppSummary
 import com.riyadm.unsendvault.core.model.ArchivedMessage
+import com.riyadm.unsendvault.core.model.ContentKind
 import com.riyadm.unsendvault.core.model.Conversation
 import com.riyadm.unsendvault.core.model.MessageDetail
+import com.riyadm.unsendvault.core.model.MediaLink
+import com.riyadm.unsendvault.core.model.MessageMedia
 import com.riyadm.unsendvault.core.model.MessageQuery
 import com.riyadm.unsendvault.core.model.MessageStatus
 import com.riyadm.unsendvault.core.model.VaultStats
@@ -30,6 +33,7 @@ import com.riyadm.unsendvault.data.db.MessageEntity
 import com.riyadm.unsendvault.data.db.MessageRevisionEntity
 import com.riyadm.unsendvault.data.db.VaultDao
 import com.riyadm.unsendvault.data.db.VaultDatabase
+import com.riyadm.unsendvault.data.media.MediaVault
 import com.riyadm.unsendvault.data.security.FieldCipher
 import com.riyadm.unsendvault.data.security.FieldCipher.Field
 import com.riyadm.unsendvault.data.security.FieldCipher.IndexDomain
@@ -44,6 +48,7 @@ import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
 
 /**
  * Room implementation of [VaultRepository] with field-level encryption ([FieldCipher], keys held by the open
@@ -60,9 +65,11 @@ import kotlinx.coroutines.flow.map
  */
 class RoomVaultRepository(
     private val holder: VaultDatabaseHolder,
+    /** Encrypted picture files of media messages; null keeps no pictures (tests, fakes). */
+    private val media: MediaVault? = null,
 ) : VaultRepository, VaultHealth by holder, BackupStore {
 
-    constructor(db: VaultDatabase) : this(VaultDatabaseHolder.of(db))
+    constructor(db: VaultDatabase, media: MediaVault? = null) : this(VaultDatabaseHolder.of(db), media)
 
     // ---- Reads -----------------------------------------------------------------------------------------------------
 
@@ -147,6 +154,7 @@ class RoomVaultRepository(
             val counter = Counter()
             val touched = mutableSetOf<Long>()
             val saved = ArrayList<IngestResult.SavedRef>()
+            val mediaCandidates = ArrayList<IngestResult.MediaRef>()
             val markedIn = HashSet<Long>()
             val notificationIndex = cipher.blindIndex(parsed.notificationKey, IndexDomain.NOTIFICATION)
             val conversations = ConversationCache(dao, cipher)
@@ -162,7 +170,14 @@ class RoomVaultRepository(
                 if (normalized.isEmpty()) continue
                 if (markerTexts[c.packageName to c.conversationKey]?.contains(normalized) == true) continue
                 val conversation = conversations.upsert(c, parsed.appLabel, capturedAt)
-                when (ingestMessage(dao, cipher, conversation.id, c, normalized, notificationIndex, capturedAt, batch)) {
+                val outcome = ingestMessage(dao, cipher, conversation.id, c, normalized, notificationIndex, capturedAt, batch)
+                val uri = c.mediaUri
+                val mime = c.mediaMimeType
+                // Only real media messages: never for text the sensitive/OTP filter replaced.
+                if (uri != null && mime != null && c.contentKind == ContentKind.MEDIA_PLACEHOLDER && batch.lastRowId > 0) {
+                    mediaCandidates += IngestResult.MediaRef(batch.lastRowId, uri, mime)
+                }
+                when (outcome) {
                     Outcome.INSERTED -> {
                         counter.inserted++
                         touched += conversation.id
@@ -180,7 +195,7 @@ class RoomVaultRepository(
                 }
             }
             if (touched.isNotEmpty()) recomputeAggregates(dao, cipher, touched.toList())
-            IngestResult(counter.inserted, counter.updated, counter.unchanged, counter.marked, saved, markedIn)
+            IngestResult(counter.inserted, counter.updated, counter.unchanged, counter.marked, saved, markedIn, mediaCandidates)
         }
     }
 
@@ -202,6 +217,9 @@ class RoomVaultRepository(
      */
     private class BatchContext(messages: List<CapturedMessage>, cipher: FieldCipher) {
         val matchedIds = mutableSetOf<Long>()
+
+        /** Id of the row the last [ingestMessage] call inserted or matched (media candidates). */
+        var lastRowId = 0L
         private val slotCounts = messages.filter { it.hasPreciseTimestamp }
             .groupingBy { Triple(it.conversationKey, TextNormalizer.senderKey(it.sender), it.messageTimestamp) }.eachCount()
         private val textIndexesBySender = messages
@@ -283,8 +301,9 @@ class RoomVaultRepository(
         val owner = FieldCipher.forMessage(conversationId)
         val existing = findIdentity(dao, conversationId, senderKey, senderIndex, textIndex, c, batch)
         existing?.let { batch.matchedIds += it.id }
+        batch.lastRowId = existing?.id ?: 0L
         if (existing == null) {
-            batch.matchedIds += dao.insertMessage(
+            batch.lastRowId = dao.insertMessage(
                 MessageEntity(
                     conversationId = conversationId,
                     packageName = c.packageName,
@@ -306,6 +325,7 @@ class RoomVaultRepository(
                     lastNotificationIndex = notificationIndex,
                 ),
             )
+            batch.matchedIds += batch.lastRowId
             return Outcome.INSERTED
         }
 
@@ -482,18 +502,25 @@ class RoomVaultRepository(
             recomputeAggregates(dao, db.cipher, conversations.toList())
             dao.deleteEmptyConversations()
         }
+        pruneMedia(db)
     }
 
     override suspend fun deleteConversation(conversationId: Long) {
-        holder.database()?.dao()?.deleteConversation(conversationId)
+        val db = holder.database() ?: return
+        db.dao().deleteConversation(conversationId)
+        pruneMedia(db)
     }
 
     override suspend fun deleteApp(packageName: String) {
-        holder.database()?.dao()?.deleteConversationsForPackage(packageName)
+        val db = holder.database() ?: return
+        db.dao().deleteConversationsForPackage(packageName)
+        pruneMedia(db)
     }
 
     override suspend fun deleteAll() {
-        holder.database()?.dao()?.deleteAllConversations()
+        val db = holder.database() ?: return
+        db.dao().deleteAllConversations()
+        media?.let { withContext(Dispatchers.IO) { it.clear() } }
     }
 
     override suspend fun deleteOlderThan(cutoffMillis: Long, keepFavorites: Boolean): Int {
@@ -506,6 +533,72 @@ class RoomVaultRepository(
                 recomputeAllAggregates(dao, db.cipher)
             }
             deleted
+        }.also { if (it > 0) pruneMedia(db) }
+    }
+
+    // ---- Media -----------------------------------------------------------------------------------------------------
+
+    override suspend fun hasMedia(messageId: Long): Boolean {
+        val store = media ?: return false
+        return withContext(Dispatchers.IO) { store.has(messageId) }
+    }
+
+    override suspend fun saveMedia(messageId: Long, mimeType: String, bytes: ByteArray): Boolean {
+        val store = media ?: return false
+        val db = holder.database() ?: return false
+        if (db.dao().existingMessageIds(listOf(messageId)).isEmpty()) return false
+        val written = withContext(Dispatchers.IO) { store.write(messageId, mimeType, bytes, db.cipher) }
+        // The message may have been deleted while the picture was being written: never leave an orphan behind.
+        if (written && db.dao().existingMessageIds(listOf(messageId)).isEmpty()) {
+            withContext(Dispatchers.IO) { store.delete(listOf(messageId)) }
+            return false
+        }
+        return written
+    }
+
+    override suspend fun loadMedia(messageId: Long): MessageMedia? {
+        val store = media ?: return null
+        val db = holder.database() ?: return null
+        return withContext(Dispatchers.IO) { store.read(messageId, db.cipher) }
+    }
+
+    override suspend fun saveMediaLink(messageId: Long, link: MediaLink): Boolean {
+        val store = media ?: return false
+        val db = holder.database() ?: return false
+        if (db.dao().existingMessageIds(listOf(messageId)).isEmpty()) return false
+        val written = withContext(Dispatchers.IO) { store.writeLink(messageId, link, db.cipher) }
+        if (written && db.dao().existingMessageIds(listOf(messageId)).isEmpty()) {
+            withContext(Dispatchers.IO) { store.delete(listOf(messageId)) }
+            return false
+        }
+        return written
+    }
+
+    override suspend fun loadMediaLink(messageId: Long): MediaLink? {
+        val store = media ?: return null
+        val db = holder.database() ?: return null
+        return withContext(Dispatchers.IO) { store.readLink(messageId, db.cipher) }
+    }
+
+    override suspend fun removeMedia(messageId: Long) {
+        val store = media ?: return
+        withContext(Dispatchers.IO) { store.markRemoved(messageId) }
+    }
+
+    override suspend fun isMediaRemoved(messageId: Long): Boolean {
+        val store = media ?: return false
+        return withContext(Dispatchers.IO) { store.isRemoved(messageId) }
+    }
+
+    /** Deletes picture files whose message is gone (after deletes, retention and REPLACE imports). Never throws. */
+    private suspend fun pruneMedia(db: VaultDatabase) {
+        val store = media ?: return
+        try {
+            withContext(Dispatchers.IO) { store.prune { ids -> db.dao().existingMessageIds(ids) } }
+        } catch (e: IllegalStateException) {
+            Log.w(TAG, "Media prune failed", e)
+        } catch (e: SQLException) {
+            Log.w(TAG, "Media prune failed", e)
         }
     }
 
@@ -603,7 +696,7 @@ class RoomVaultRepository(
             recomputeAllAggregates(dao, cipher)
             dao.deleteEmptyConversations()
             ImportCounts(messages = payload.messages.size, conversations = payload.conversations.size)
-        }
+        }.also { if (mode == ImportMode.REPLACE) pruneMedia(db) }
     }
 
     /**

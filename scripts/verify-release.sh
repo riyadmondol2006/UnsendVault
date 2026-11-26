@@ -21,6 +21,11 @@ expected_package=com.riyadm.unsendvault
 allowed_permissions=(
   android.permission.INTERNET # update check only (opt-in)
   android.permission.POST_NOTIFICATIONS # opt-in saved-message notifications
+  android.permission.READ_MEDIA_IMAGES # opt-in "Find on phone" (read-only)
+  android.permission.READ_MEDIA_VIDEO
+  android.permission.READ_MEDIA_AUDIO
+  android.permission.READ_MEDIA_VISUAL_USER_SELECTED
+  android.permission.READ_EXTERNAL_STORAGE # "Find on phone" on Android 12L and older (maxSdkVersion 32)
   android.permission.USE_BIOMETRIC
   android.permission.USE_FINGERPRINT
   android.permission.WAKE_LOCK

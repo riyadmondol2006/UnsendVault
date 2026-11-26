@@ -84,6 +84,7 @@ class DataStoreSettingsRepository(
         val startTab = stringPreferencesKey("start_tab")
         val savedMessageNotifications = booleanPreferencesKey("saved_message_notifications")
         val notificationShowContent = booleanPreferencesKey("notification_show_content")
+        val savePictures = booleanPreferencesKey("save_pictures")
         val appsToSave = stringPreferencesKey("apps_to_save")
         val selectedPackages = stringSetPreferencesKey("selected_packages")
 
@@ -117,6 +118,7 @@ class DataStoreSettingsRepository(
                 startTab = p[Keys.startTab]?.let { n -> StartTab.entries.firstOrNull { it.name == n } } ?: DEFAULTS.startTab,
                 savedMessageNotifications = p[Keys.savedMessageNotifications] ?: DEFAULTS.savedMessageNotifications,
                 notificationShowContent = (p[Keys.notificationShowContent] ?: DEFAULTS.notificationShowContent) && !appLock,
+                savePictures = p[Keys.savePictures] ?: DEFAULTS.savePictures,
                 appsToSave = p[Keys.appsToSave]?.let { n -> AppsToSave.entries.firstOrNull { it.name == n } } ?: DEFAULTS.appsToSave,
                 selectedPackages = p[Keys.selectedPackages] ?: DEFAULTS.selectedPackages,
                 newApps = p[Keys.newApps]?.split(',')?.filter { it.isNotBlank() }?.distinct()?.takeLast(VaultSettings.MAX_NEW_APPS)
@@ -145,6 +147,7 @@ class DataStoreSettingsRepository(
             p[Keys.startTab] = s.startTab.name
             p[Keys.savedMessageNotifications] = s.savedMessageNotifications
             p[Keys.notificationShowContent] = s.notificationShowContent && !s.appLockEnabled
+            p[Keys.savePictures] = s.savePictures
             p[Keys.appsToSave] = s.appsToSave.name
             p[Keys.selectedPackages] = s.selectedPackages
             p[Keys.newApps] = s.newApps.filter { it.isNotBlank() && ',' !in it }.distinct().takeLast(VaultSettings.MAX_NEW_APPS).joinToString(",")

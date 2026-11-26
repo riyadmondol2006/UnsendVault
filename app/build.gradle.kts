@@ -71,6 +71,11 @@ abstract class VerifyPermissionsTask : DefaultTask() {
         val allowed = setOf(
             "android.permission.INTERNET", // update check only (opt-in)
             "android.permission.POST_NOTIFICATIONS", // opt-in saved-message notifications (Android 13+ runtime grant)
+            "android.permission.READ_MEDIA_IMAGES", // opt-in "Find on phone" (read-only, runtime grant)
+            "android.permission.READ_MEDIA_VIDEO", // opt-in "Find on phone"
+            "android.permission.READ_MEDIA_AUDIO", // opt-in "Find on phone"
+            "android.permission.READ_MEDIA_VISUAL_USER_SELECTED", // Android 14+ partial photo access for "Find on phone"
+            "android.permission.READ_EXTERNAL_STORAGE", // "Find on phone" on Android 12L and older (maxSdkVersion 32)
             "android.permission.USE_BIOMETRIC", // app lock (API 28+)
             "android.permission.USE_FINGERPRINT", // app lock on API 26-27, added by androidx.biometric
             "android.permission.WAKE_LOCK", // WorkManager (used by Glance + daily retention job)

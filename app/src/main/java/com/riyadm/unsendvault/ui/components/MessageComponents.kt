@@ -59,7 +59,12 @@ fun StatusBadge(icon: ImageVector, text: String, container: Color, content: Colo
 }
 
 @Composable
-fun MessageBadges(message: ArchivedMessage, modifier: Modifier = Modifier) {
+fun MessageBadges(
+    message: ArchivedMessage,
+    modifier: Modifier = Modifier,
+    pictureSaved: Boolean = false,
+    linkedFromPhone: Boolean = false,
+) {
     val colors = MaterialTheme.colorScheme
     val hasAny = message.status == MessageStatus.POSSIBLY_DELETED || message.revisionCount > 1 ||
         message.contentKind != ContentKind.TEXT
@@ -76,8 +81,18 @@ fun MessageBadges(message: ArchivedMessage, modifier: Modifier = Modifier) {
             )
         }
         when (message.contentKind) {
-            ContentKind.MEDIA_PLACEHOLDER ->
-                StatusBadge(Icons.Outlined.Image, stringResource(R.string.badge_media), colors.surfaceContainerHighest, colors.onSurfaceVariant)
+            ContentKind.MEDIA_PLACEHOLDER -> StatusBadge(
+                Icons.Outlined.Image,
+                stringResource(
+                    when {
+                        linkedFromPhone -> R.string.badge_linked_from_phone
+                        pictureSaved -> R.string.badge_picture_saved
+                        else -> R.string.badge_media
+                    },
+                ),
+                colors.surfaceContainerHighest,
+                colors.onSurfaceVariant,
+            )
             ContentKind.SYSTEM_REDACTED ->
                 StatusBadge(Icons.Outlined.VisibilityOff, stringResource(R.string.badge_hidden_by_android), colors.surfaceContainerHighest, colors.onSurfaceVariant)
             ContentKind.FILTERED_SENSITIVE ->

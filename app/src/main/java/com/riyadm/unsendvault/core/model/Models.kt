@@ -10,7 +10,10 @@ enum class ContentKind {
     /** Normal text exposed by the notification. */
     TEXT,
 
-    /** The app only exposed a placeholder such as "📷 Photo" or "Sent an attachment"; the media itself is never saved. */
+    /**
+     * The app only exposed a placeholder such as "📷 Photo" or "Sent an attachment". The media itself is only kept when
+     * the user turned on [VaultSettings.savePictures] and the app attached a picture to the notification.
+     */
     MEDIA_PLACEHOLDER,
 
     /** Content withheld by the system (Android 15+ sensitive-notification redaction, Android 17 message-read restriction). */
@@ -87,6 +90,15 @@ data class ArchivedMessage(
     val lastRemovalReason: RemovalReason?,
     val lastRemovedAt: Long?,
 )
+
+/** A picture kept for a media message (decrypted, in memory only). Not a data class: it holds an array. */
+class MessageMedia(val mimeType: String, val bytes: ByteArray)
+
+/**
+ * A file on the phone (MediaStore content URI) the user linked to a media message with "Find on phone". Only the
+ * reference is kept: the file stays where the chat app saved it.
+ */
+data class MediaLink(val uri: String, val mimeType: String)
 
 /** A previous text version of a message (update history). */
 data class MessageRevision(
@@ -194,6 +206,11 @@ data class VaultSettings(
      * always forced off while the app lock is enabled.
      */
     val notificationShowContent: Boolean = false,
+    /**
+     * Keep the pictures chat apps attach to their notifications (photos, stickers, previews), encrypted like the text.
+     * Off by default. Only what the notification itself carries can be kept: never full videos, voice messages or files.
+     */
+    val savePictures: Boolean = false,
     val appsToSave: AppsToSave = AppsToSave.ALL_CHAT_APPS,
     /** Apps saved in [AppsToSave.SELECTED_APPS] mode. Kept when switching back, so the choice isn't lost. */
     val selectedPackages: Set<String> = emptySet(),

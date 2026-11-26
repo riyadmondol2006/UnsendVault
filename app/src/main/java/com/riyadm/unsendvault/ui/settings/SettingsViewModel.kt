@@ -131,6 +131,7 @@ class SettingsViewModel(
     // Capture
     fun setCaptureEnabled(value: Boolean) = update { it.copy(captureEnabled = value) }
     fun setMessagesOnly(value: Boolean) = update { it.copy(messagesOnly = value) }
+    fun setSavePictures(value: Boolean) = update { it.copy(savePictures = value) }
 
     /** Turning suggestions off also forgets the apps collected so far, so nothing stale shows up when they come back on. */
     fun setSuggestNewApps(value: Boolean) = update { it.copy(suggestNewApps = value, newApps = if (value) it.newApps else emptyList()) }

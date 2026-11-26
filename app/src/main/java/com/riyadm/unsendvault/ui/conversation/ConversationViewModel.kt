@@ -1,6 +1,7 @@
 package com.riyadm.unsendvault.ui.conversation
 
 import androidx.compose.runtime.Immutable
+import androidx.compose.ui.graphics.ImageBitmap
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.riyadm.unsendvault.core.model.ArchivedMessage
@@ -10,6 +11,15 @@ import com.riyadm.unsendvault.data.VaultRepository
 import com.riyadm.unsendvault.reply.ReplyAvailability
 import com.riyadm.unsendvault.reply.ReplyGateway
 import com.riyadm.unsendvault.reply.ReplyResult
+import com.riyadm.unsendvault.core.model.MediaLink
+import com.riyadm.unsendvault.ui.components.PictureDecoder
+import com.riyadm.unsendvault.ui.media.LinkedFile
+import com.riyadm.unsendvault.ui.media.MessageAttachment
+import com.riyadm.unsendvault.ui.media.PhoneMediaFile
+import com.riyadm.unsendvault.ui.media.PhoneMediaFinder
+import com.riyadm.unsendvault.ui.media.PhoneMediaKind
+import com.riyadm.unsendvault.ui.media.kindOfMime
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.flow.Flow
@@ -25,6 +35,7 @@ import kotlinx.coroutines.flow.receiveAsFlow
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.time.Instant
 import java.time.LocalDate
 import java.time.ZoneId
@@ -74,6 +85,9 @@ sealed interface ConversationEvent {
     data class MessagesDeleted(val count: Int) : ConversationEvent
     data object ConversationDeleted : ConversationEvent
     data class Reply(val result: ReplyResult) : ConversationEvent
+
+    /** "Find on phone": the chosen file was attached (true) or could not be read/linked (false). */
+    data class MediaAttached(val ok: Boolean) : ConversationEvent
 }
 
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -82,6 +96,8 @@ class ConversationViewModel(
     private val vault: VaultRepository,
     private val zone: ZoneId = ZoneId.systemDefault(),
     private val replyGateway: ReplyGateway? = null,
+    /** "Find on phone" for media messages; null hides it (tests, previews). */
+    private val phoneMedia: PhoneMediaFinder? = null,
 ) : ViewModel() {
     private val selection = MutableStateFlow<Set<Long>>(emptySet())
     private val replyRefresh = MutableStateFlow(0)
@@ -163,6 +179,95 @@ class ConversationViewModel(
         }
     }
 
+    /** Small cache of decoded pictures, so scrolling back does not decrypt/decode again. Guarded by itself. */
+    private val pictures = object : LinkedHashMap<Long, ImageBitmap>(16, 0.75f, true) {
+        override fun removeEldestEntry(eldest: MutableMap.MutableEntry<Long, ImageBitmap>?) = size > PICTURE_CACHE_SIZE
+    }
+
+    /** The saved picture of a media message, decrypted and downscaled for display, or null when none was kept. */
+    suspend fun loadPicture(messageId: Long): ImageBitmap? {
+        synchronized(pictures) { pictures[messageId] }?.let { return it }
+        val media = vault.loadMedia(messageId) ?: return null
+        val bitmap = withContext(Dispatchers.Default) {
+            try {
+                PictureDecoder.decode(media.bytes)
+            } finally {
+                media.bytes.fill(0)
+            }
+        } ?: return null
+        synchronized(pictures) { pictures[messageId] = bitmap }
+        return bitmap
+    }
+
+    private val _mediaVersion = MutableStateFlow(0)
+
+    /** Bumped when a message's picture or linked file changes, so bubbles reload their attachment. */
+    val mediaVersion: StateFlow<Int> = _mediaVersion
+
+    val canFindOnPhone: Boolean get() = phoneMedia != null
+
+    fun phonePermissions(): Array<String> = phoneMedia?.permissions() ?: emptyArray()
+
+    fun hasPhoneAccess(): Boolean = phoneMedia?.hasAccess() == true
+
+    fun hasPartialPhoneAccess(): Boolean = phoneMedia?.hasPartialAccess() == true
+
+    /** Picture and/or linked phone file of a media message, or null when it has neither. */
+    suspend fun loadAttachment(messageId: Long): MessageAttachment? {
+        val picture = loadPicture(messageId)
+        val link = vault.loadMediaLink(messageId)
+        val linked = link?.let { l ->
+            val kind = kindOfMime(l.mimeType)
+            val available = phoneMedia?.exists(l.uri) == true
+            val thumbnail = if (picture == null && available && kind != PhoneMediaKind.AUDIO) phoneMedia?.thumbnail(l.uri, kind) else null
+            LinkedFile(l.uri, l.mimeType, kind, thumbnail, available)
+        }
+        if (picture == null && linked == null) return null
+        return MessageAttachment(picture, linked)
+    }
+
+    /** Phone files offered for [message] (the user picks one; nothing is attached automatically). */
+    suspend fun findOnPhone(message: ArchivedMessage, anyApp: Boolean): List<PhoneMediaFile> =
+        phoneMedia?.candidates(message.packageName, message.appLabel, message.messageTimestamp, message.text, anyApp)
+            ?: emptyList()
+
+    suspend fun phoneThumbnail(file: PhoneMediaFile): ImageBitmap? = phoneMedia?.thumbnail(file.uri, file.kind)
+
+    /**
+     * Attaches the file the user picked. Pictures are copied into the encrypted store (they stay even if deleted from
+     * the phone, like pictures from notifications); videos and audio are linked, since copying them could take
+     * hundreds of MB. A picture too large to copy is linked instead.
+     */
+    fun attachFromPhone(messageId: Long, file: PhoneMediaFile) {
+        val finder = phoneMedia ?: return
+        viewModelScope.launch {
+            var ok = false
+            if (file.kind == PhoneMediaKind.IMAGE) {
+                val bytes = finder.read(file.uri, MAX_COPY_BYTES)
+                if (bytes != null) {
+                    ok = vault.saveMedia(messageId, file.mimeType, bytes)
+                    bytes.fill(0)
+                }
+            }
+            if (!ok) ok = vault.saveMediaLink(messageId, MediaLink(file.uri, file.mimeType))
+            synchronized(pictures) { pictures.remove(messageId) }
+            _mediaVersion.update { it + 1 }
+            _events.send(ConversationEvent.MediaAttached(ok))
+        }
+    }
+
+    /** Removes the picture and link of a message (a wrong pick, or no longer wanted). The phone file is untouched. */
+    fun removeAttachment(messageId: Long) {
+        viewModelScope.launch {
+            vault.removeMedia(messageId)
+            synchronized(pictures) { pictures.remove(messageId) }
+            _mediaVersion.update { it + 1 }
+        }
+    }
+
+    fun openLinked(context: android.content.Context, file: LinkedFile): Boolean =
+        phoneMedia?.open(context, file.uri, file.mimeType) == true
+
     fun deleteConversation() {
         viewModelScope.launch {
             vault.deleteConversation(conversationId)
@@ -172,5 +277,7 @@ class ConversationViewModel(
 
     companion object {
         const val MESSAGE_LIMIT = 2_000
+        private const val PICTURE_CACHE_SIZE = 24
+        private const val MAX_COPY_BYTES = 30 * 1024 * 1024
     }
 }

@@ -76,6 +76,8 @@ class SnapshotFactoryRobolectricTest {
         assertEquals(listOf("Alex Rivera", null, "Alex Rivera"), s.messages.map { it.sender })
         assertEquals(listOf(T0, T0 + 1, T0 + 2), s.messages.map { it.timestamp })
         assertEquals("image/jpeg", s.messages[2].dataMimeType)
+        assertEquals("content://com.example.chat/media/1", s.messages[2].dataUri)
+        assertNull(s.messages[0].dataUri)
         assertEquals(listOf("Earlier"), s.historicMessages.map { it.text })
         assertFalse(s.looksSystemRedacted)
 
@@ -84,6 +86,9 @@ class SnapshotFactoryRobolectricTest {
         assertEquals(listOf("Earlier", "Standup in 5", "On my way", "📷 Photo"), parsed.messages.map { it.text })
         assertEquals(listOf("Alex Rivera", "Alex Rivera", "You", "Alex Rivera"), parsed.messages.map { it.sender })
         assertEquals(ContentKind.MEDIA_PLACEHOLDER, parsed.messages.last().contentKind)
+        assertEquals("content://com.example.chat/media/1", parsed.messages.last().mediaUri)
+        assertEquals("image/jpeg", parsed.messages.last().mediaMimeType)
+        assertTrue(parsed.messages.dropLast(1).all { it.mediaUri == null })
         assertTrue(parsed.messages.all { it.conversationKey == "shortcut:conv-1" && it.isGroup })
     }
 

@@ -42,7 +42,11 @@ It **cannot**:
 - recover anything from before you granted access, or from while capture was paused or stopped;
 - read chats you have **open on screen** (apps usually post no notification for them), chats you **muted** if the app
   posts nothing for them, or apps where **previews are hidden** ("New message");
-- save **photos, videos, voice notes or files**; you get a placeholder such as "Photo";
+- save **videos, voice notes or files** by itself; you get a placeholder such as "Video". Photos and stickers are
+  kept only with **Save pictures** on (off by default) and only when the chat app puts the picture in its
+  notification. If the chat app also saved the file on your phone, **Find on phone** on that message lists the files
+  it saved around that time and you pick the right one (it never guesses for you); videos and audio are linked, not
+  copied, so they disappear if you delete them from the phone;
 - read content Android withholds from apps like this one: Android 15+ may hide one-time codes (in our test it did
   not, which is why UnsendVault's own code filter is on by default), and Android 17+ may withhold end-to-end
   encrypted messages (Google lists "Restricted message access" without documenting the details; see
@@ -146,6 +150,7 @@ Full details: [PRIVACY.md](PRIVACY.md). Security reports: [SECURITY.md](SECURITY
 | Notification Access (granted by you in system settings) | Read message notifications |
 | `INTERNET` | Only the opt-in update check to `api.github.com` |
 | `POST_NOTIFICATIONS` | Only the optional "messages saved" notifications (off by default; Android 13+ asks you first) |
+| `READ_MEDIA_IMAGES` / `READ_MEDIA_VIDEO` / `READ_MEDIA_AUDIO` (`READ_EXTERNAL_STORAGE` on Android 12L and older) | Only "Find on phone" on a media message: asked the first time you tap it, read-only, lists the files the chat app saved around that message |
 | `USE_BIOMETRIC` / `USE_FINGERPRINT` | App lock |
 | `WAKE_LOCK`, `RECEIVE_BOOT_COMPLETED` | Used by WorkManager for the daily auto-delete job and widget updates; reschedules after reboot |
 
